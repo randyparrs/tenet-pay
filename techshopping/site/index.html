@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TechShopping</title>
+<meta name="description" content="TechShopping: an example store on Arc testnet that takes payments with Tenet Pay, buyer protection for stablecoin payments.">
+<meta name="tenet-gateway-api" content="https://tenet-gateway.randyparra.workers.dev">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&amp;family=Hanken+Grotesk:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=20261026a">
+<link rel="stylesheet" href="styles.css?v=20261026a">
+</head>
+<body>
+<div class="app" id="app">
+
+  <div class="announce" id="announce-bar">Demo store on Arc testnet. Prices are in test USDC and nothing ships.</div>
+
+  <header class="site-header" id="site-header">
+    <div class="site-header__inner">
+      <a href="#/" class="wordmark" id="nav-logo" data-action="go-shop">techshopping<span class="wordmark__dot">.</span></a>
+      <nav class="site-nav" id="site-nav">
+        <a href="#/" id="nav-shop" data-nav="shop" data-scroll-target="lineup">Shop</a>
+        <a href="#/orders" id="nav-orders" data-nav="order">Order status</a>
+        <a href="#/" id="nav-about" class="site-nav__muted" data-scroll-target="about">About this demo</a>
+      </nav>
+      <div class="store-status" id="store-status">
+        <span class="store-status__dot"></span><span data-field="store.statusText">Orders open, ships in minutes on testnet</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Screen: shop (route #/) -->
+  <main class="screen screen--shop" id="screen-shop" data-screen="shop">
+    <section class="hero" id="hero">
+      <div class="hero__copy">
+        <span class="hero__eyebrow">The everyday three</span>
+        <h1 class="hero__title">Small gear that just works.</h1>
+        <p class="hero__lead">Earbuds, a fast charger and a case. Three things you carry every day, chosen for how they feel after a year, not on day one.</p>
+        <div class="hero__actions">
+          <a href="#/" class="btn-primary" id="hero-shop-cta" data-scroll-target="lineup">Shop the three<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"></path></svg></a>
+          <span class="hero__note">From 1 USDC. Every order protected at checkout.</span>
+        </div>
+      </div>
+      <!-- Filled from data.hero by app.js -->
+      <div class="hero-grid" id="hero-grid" data-list="hero"></div>
+    </section>
+
+    <section class="lineup" id="lineup">
+      <div class="lineup__head">
+        <h2 class="lineup__title">The lineup</h2>
+        <span class="lineup__note">Each product runs one test scenario, so you can try every kind of claim with Tenet.</span>
+      </div>
+      <!-- Filled from data.products by app.js -->
+      <div class="product-grid" id="product-list" data-list="products"></div>
+    </section>
+  </main>
+
+  <!-- Screen: order status (route #/orders/:orderId) -->
+  <main class="screen screen--order" id="screen-order" data-screen="order" hidden>
+    <div class="order-head">
+      <h1 class="order-head__title">Order status</h1>
+      <form class="order-lookup" id="order-lookup-form" autocomplete="off">
+        <input class="order-lookup__input" id="order-lookup-input" name="orderId" placeholder="TS-000000" aria-label="Order number">
+        <button class="order-lookup__btn" id="order-lookup-submit" type="submit">Find</button>
+      </form>
+    </div>
+
+    <div class="order-card" id="order-card" data-order-id="" data-payment="paid">
+      <div class="order-card__top">
+        <div class="order-card__thumb art-tile" id="order-art" data-art=""><div class="art-slot"></div></div>
+        <div class="order-card__info">
+          <span class="mono muted" data-field="order.path"></span>
+          <span class="order-card__name" data-field="product.name"></span>
+          <span class="order-card__price" data-field="order.priceLine"></span>
+        </div>
+        <span class="status-pill" id="order-status-pill" data-tone=""><span class="status-pill__dot"></span><span data-field="order.statusLabel"></span></span>
+      </div>
+
+      <!-- State: unpaid -->
+      <div class="order-unpaid" id="order-unpaid">
+        <span class="order-unpaid__text">We created this order and are waiting for your payment on Tenet. Nothing ships until it is paid.</span>
+        <a href="#" target="_blank" rel="noopener" class="tenet-link" id="order-pay-link" data-action="pay-order"><span class="tenet-icon tenet-icon--22" data-icon="tenet"></span><span>Pay with <span class="tenet-word">TENET</span></span></a>
+      </div>
+
+      <!-- State: paid -->
+      <div class="order-paid" id="order-paid">
+        <div class="order-dates" id="order-dates" data-list="order.dates"></div>
+        <div class="order-body">
+          <div class="emails-head">
+            <span class="emails-head__title">Emails sent</span>
+            <span class="emails-head__meta">Sent to <span class="mono ink-soft" data-field="order.mailTo"></span>, signed with DKIM</span>
+          </div>
+          <div class="email-list" id="order-emails" data-list="order.emails"></div>
+          <div class="scenario-note" id="order-scenario">
+            <span class="scenario-note__label mono">Test scenario</span>
+            <span class="scenario-note__text" data-field="order.scenarioNote"></span>
+          </div>
+          <div class="order-actions">
+            <a href="#" target="_blank" rel="noopener" class="btn-dark" id="order-claim-link" data-action="open-claim">Open a claim on Tenet</a>
+            <a href="#/" class="btn-outline" id="order-back-to-shop" data-action="go-shop">Back to the shop</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer" id="about">
+    <div class="site-footer__inner">
+      <div class="site-footer__about">
+        <span class="wordmark wordmark--sm">techshopping<span class="wordmark__dot">.</span></span>
+        <span class="site-footer__text">TechShopping is a demo store on Arc testnet. Payments use test USDC, nothing is shipped, and each product follows its test scenario so you can try Tenet's buyer protection end to end.</span>
+      </div>
+      <div class="site-footer__links">
+        <div class="site-footer__col"><span class="site-footer__label">Store</span><a href="#/" id="footer-shop" data-scroll-target="lineup">Shop</a><a href="#/orders" id="footer-orders">Order status</a></div>
+        <div class="site-footer__col"><span class="site-footer__label">Payments</span><a href="https://paytenet.site" target="_blank" rel="noopener" id="footer-tenet-pay">Tenet Pay</a><a href="https://tenet.rpmdev.app" target="_blank" rel="noopener" id="footer-tenet">Tenet</a></div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Purchase notice: floats at the bottom right, outside the product cards, so a card never changes size -->
+  <div class="toast" id="shop-toast" data-tone="ok" role="status" aria-live="polite" hidden>
+    <span class="toast__mark" aria-hidden="true"></span>
+    <div class="toast__body">
+      <span class="toast__title" id="shop-toast-title"></span>
+      <span class="toast__text" id="shop-toast-text"></span>
+      <a href="#" target="_blank" rel="noopener" class="toast__link" id="shop-toast-link" data-action="open-checkout">Open the checkout</a>
+    </div>
+    <button type="button" class="toast__close" id="shop-toast-close" data-action="close-toast" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+  </div>
+
+</div>
+
+<!-- ===== Templates used by app.js ===== -->
+
+<template id="tpl-hero-tile">
+  <div class="hero-tile art-tile" data-art="" data-product-id="">
+    <div class="art-slot"></div>
+    <span class="hero-tile__label"><span data-field="label"></span><span class="sold-out-tag">Sold out</span></span>
+  </div>
+</template>
+
+<template id="tpl-product-card">
+  <article class="product-card" data-product-id="" data-state="idle">
+    <div class="product-card__media art-tile" data-art="">
+      <div class="art-slot"></div>
+      <span class="scenario-tag mono"><span>Test scenario: <span data-field="scenario"></span></span></span>
+    </div>
+    <div class="product-card__body">
+      <div class="product-card__title-row">
+        <h3 class="product-card__name" data-field="name"></h3>
+        <span class="product-card__price"><span data-field="price"></span> <span class="product-card__currency" data-field="currency"></span></span>
+      </div>
+      <p class="product-card__desc" data-field="description"></p>
+      <div class="spec-grid" data-list="specs"></div>
+    </div>
+    <div class="product-card__foot">
+      <button type="button" class="pay-btn" data-action="pay" data-product-id="">
+        <span class="tenet-icon tenet-icon--26" data-icon="tenet"></span>
+        <span class="pay-btn__idle">Pay with <span class="tenet-word">TENET</span></span>
+        <span class="pay-btn__busy">Creating your order</span>
+        <span class="pay-btn__price mono"><span data-field="price"></span> <span data-field="currency"></span></span>
+        <span class="pay-btn__spinner" aria-hidden="true"></span>
+      </button>
+      <span class="protection-note"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"></path></svg>Buyer protection by Tenet</span>
+    </div>
+  </article>
+</template>
+
+<template id="tpl-spec">
+  <div class="spec"><span class="spec__label" data-field="label"></span><span class="spec__value" data-field="value"></span></div>
+</template>
+
+<template id="tpl-order-date">
+  <div class="order-date" data-tone="">
+    <span class="order-date__label" data-field="label"></span>
+    <span class="order-date__value" data-field="value"></span>
+    <span class="order-date__note" data-field="note"></span>
+  </div>
+</template>
+
+<template id="tpl-order-email">
+  <div class="email-row" data-state="">
+    <span class="email-row__icon mono" data-field="icon"></span>
+    <div class="email-row__text"><span class="email-row__subject" data-field="subject"></span><span class="email-row__detail" data-field="detail"></span></div>
+    <span class="email-row__time mono" data-field="sentAt"></span>
+  </div>
+</template>
+
+
+<!-- Inline SVG: Tenet icon. Ids are made unique per copy by app.js -->
+<template id="icon-tenet">
+  <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+    <defs><linearGradient id="tn-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1D4A32"></stop><stop offset="1" stop-color="#0E1411"></stop></linearGradient></defs>
+    <rect width="64" height="64" rx="14" fill="url(#tn-grad)"></rect>
+    <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#5CC48A" stroke-opacity="0.45" stroke-width="2"></rect>
+    <path d="M32 14v36M14 32h36" stroke="#B4F0CB" stroke-width="5.5" stroke-linecap="round"></path>
+  </svg>
+</template>
+
+<!-- Inline SVG product illustrations. Ids are made unique per copy by app.js -->
+<template id="art-buds">
+  <svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <defs>
+      <linearGradient id="pa-eb-case" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="1" stop-color="#E2DCD2"></stop></linearGradient>
+      <linearGradient id="pa-eb-lid" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="1" stop-color="#F1ECE5"></stop></linearGradient>
+      <radialGradient id="pa-eb-bud" cx="0.36" cy="0.3" r="0.85"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="0.65" stop-color="#EEE9E2"></stop><stop offset="1" stop-color="#D3CBBF"></stop></radialGradient>
+      <filter id="pa-eb-sh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"></feGaussianBlur></filter>
+    </defs>
+    <ellipse cx="200" cy="252" rx="118" ry="13" fill="#1B1611" opacity="0.2" filter="url(#pa-eb-sh)"></ellipse>
+    <rect x="112" y="128" width="176" height="120" rx="54" fill="url(#pa-eb-case)" stroke="#D6CEC2" stroke-width="1.5"></rect>
+    <path d="M112.5 172 C112.5 150 130 128.5 166 128.5 H234 C270 128.5 287.5 150 287.5 172 Z" fill="url(#pa-eb-lid)"></path>
+    <path d="M113 172 H287" stroke="#CFC6B9" stroke-width="1.6"></path>
+    <rect x="186" y="208" width="28" height="5" rx="2.5" fill="#FF5A1F"></rect>
+    <ellipse cx="200" cy="140" rx="60" ry="6" fill="#FFFFFF" opacity="0.8"></ellipse>
+    <g transform="translate(150 92) rotate(-20)">
+      <ellipse cx="4" cy="74" rx="16" ry="5" fill="#1B1611" opacity="0.12" filter="url(#pa-eb-sh)"></ellipse>
+      <rect x="-9" y="4" width="18" height="66" rx="9" fill="url(#pa-eb-case)" stroke="#D6CEC2" stroke-width="1.2"></rect>
+      <circle cx="0" cy="0" r="29" fill="url(#pa-eb-bud)" stroke="#D3CBBF" stroke-width="1.2"></circle>
+      <circle cx="-7" cy="-5" r="11" fill="#2A2520"></circle>
+      <circle cx="-10" cy="-8" r="3" fill="#FFFFFF" opacity="0.35"></circle>
+    </g>
+    <g transform="translate(252 88) rotate(18)">
+      <rect x="-9" y="4" width="18" height="66" rx="9" fill="url(#pa-eb-case)" stroke="#D6CEC2" stroke-width="1.2"></rect>
+      <circle cx="0" cy="0" r="29" fill="url(#pa-eb-bud)" stroke="#D3CBBF" stroke-width="1.2"></circle>
+      <circle cx="7" cy="-5" r="11" fill="#2A2520"></circle>
+      <circle cx="4" cy="-8" r="3" fill="#FFFFFF" opacity="0.35"></circle>
+    </g>
+  </svg>
+</template>
+
+<template id="art-charger">
+  <svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <defs>
+      <linearGradient id="pa-ch-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="1" stop-color="#E0D9CE"></stop></linearGradient>
+      <linearGradient id="pa-ch-side" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#E6E0D6"></stop><stop offset="1" stop-color="#CFC7BA"></stop></linearGradient>
+      <linearGradient id="pa-ch-metal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#9A948B"></stop><stop offset="0.5" stop-color="#E8E4DE"></stop><stop offset="1" stop-color="#8C867D"></stop></linearGradient>
+      <filter id="pa-ch-sh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"></feGaussianBlur></filter>
+    </defs>
+    <ellipse cx="205" cy="256" rx="96" ry="12" fill="#1B1611" opacity="0.2" filter="url(#pa-ch-sh)"></ellipse>
+    <path d="M206 214 C206 262 268 246 318 262 C338 268 350 276 356 288" stroke="#CFC6B9" stroke-width="15" fill="none" stroke-linecap="round"></path>
+    <path d="M206 214 C206 262 268 246 318 262 C338 268 350 276 356 288" stroke="#F4F0EA" stroke-width="11" fill="none" stroke-linecap="round"></path>
+    <rect x="170" y="48" width="14" height="50" rx="4" fill="url(#pa-ch-metal)"></rect>
+    <rect x="216" y="48" width="14" height="50" rx="4" fill="url(#pa-ch-metal)"></rect>
+    <path d="M262 100 L282 112 V232 L262 244 Z" fill="url(#pa-ch-side)"></path>
+    <rect x="122" y="92" width="152" height="152" rx="30" fill="url(#pa-ch-body)" stroke="#D6CEC2" stroke-width="1.5"></rect>
+    <rect x="134" y="102" width="128" height="34" rx="17" fill="#FFFFFF" opacity="0.7"></rect>
+    <text x="198" y="176" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="700" font-size="18" fill="#B9B0A2" letter-spacing="1">65W</text>
+    <rect x="186" y="202" width="24" height="22" rx="5" fill="#EEE9E2" stroke="#CFC6B9" stroke-width="1.2"></rect>
+    <rect x="176" y="196" width="44" height="14" rx="7" fill="#2A2520"></rect>
+    <rect x="186" y="201" width="24" height="4" rx="2" fill="#6B645B"></rect>
+    <circle cx="246" cy="222" r="3" fill="#FF5A1F"></circle>
+  </svg>
+</template>
+
+<template id="art-case">
+  <svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <defs>
+      <linearGradient id="pa-pc-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FF7A45"></stop><stop offset="0.55" stop-color="#FF5A1F"></stop><stop offset="1" stop-color="#D8430E"></stop></linearGradient>
+      <linearGradient id="pa-pc-bump" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#E04C14"></stop><stop offset="1" stop-color="#B9380A"></stop></linearGradient>
+      <filter id="pa-pc-sh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="10"></feGaussianBlur></filter>
+    </defs>
+    <ellipse cx="206" cy="270" rx="80" ry="10" fill="#1B1611" opacity="0.22" filter="url(#pa-pc-sh)"></ellipse>
+    <g transform="rotate(-9 200 150)">
+      <rect x="140" y="30" width="122" height="234" rx="30" fill="#B23608"></rect>
+      <rect x="136" y="28" width="122" height="234" rx="30" fill="url(#pa-pc-body)"></rect>
+      <rect x="144" y="36" width="106" height="218" rx="24" fill="none" stroke="#FFFFFF" stroke-opacity="0.14" stroke-width="1.5"></rect>
+      <path d="M150 34 H190 L158 260 H150 Z" fill="#FFFFFF" opacity="0.08"></path>
+      <rect x="150" y="44" width="58" height="62" rx="17" fill="url(#pa-pc-bump)"></rect>
+      <circle cx="166" cy="61" r="10" fill="#1E1A16" stroke="#F07040" stroke-width="2"></circle>
+      <circle cx="192" cy="61" r="10" fill="#1E1A16" stroke="#F07040" stroke-width="2"></circle>
+      <circle cx="166" cy="89" r="10" fill="#1E1A16" stroke="#F07040" stroke-width="2"></circle>
+      <circle cx="192" cy="89" r="4.5" fill="#FFE1D3"></circle>
+      <circle cx="197" cy="170" r="12" fill="none" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2"></circle>
+      <rect x="257" y="92" width="5" height="32" rx="2.5" fill="#B23608"></rect>
+      <rect x="257" y="132" width="5" height="20" rx="2.5" fill="#B23608"></rect>
+    </g>
+  </svg>
+</template>
+
+<template id="art-powerbank">
+  <svg viewBox="0 0 400 300" width="100%" height="100%" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+    <defs>
+      <linearGradient id="pa-pb-body" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"></stop><stop offset="1" stop-color="#E0D9CE"></stop></linearGradient>
+      <linearGradient id="pa-pb-side" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6E0D6"></stop><stop offset="1" stop-color="#C9C1B4"></stop></linearGradient>
+      <filter id="pa-pb-sh" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="9"></feGaussianBlur></filter>
+    </defs>
+    <ellipse cx="200" cy="250" rx="112" ry="12" fill="#1B1611" opacity="0.2" filter="url(#pa-pb-sh)"></ellipse>
+    <rect x="100" y="70" width="200" height="174" rx="30" fill="url(#pa-pb-side)"></rect>
+    <rect x="100" y="58" width="200" height="174" rx="30" fill="url(#pa-pb-body)" stroke="#D6CEC2" stroke-width="1.5"></rect>
+    <rect x="114" y="68" width="172" height="36" rx="18" fill="#FFFFFF" opacity="0.7"></rect>
+    <text x="200" y="158" text-anchor="middle" font-family="Bricolage Grotesque, sans-serif" font-weight="700" font-size="18" fill="#B9B0A2" letter-spacing="1">10,000</text>
+    <circle cx="176" cy="196" r="4" fill="#FF5A1F"></circle>
+    <circle cx="192" cy="196" r="4" fill="#FF5A1F"></circle>
+    <circle cx="208" cy="196" r="4" fill="#FF5A1F"></circle>
+    <circle cx="224" cy="196" r="4" fill="#D6CEC2"></circle>
+    <rect x="178" y="226" width="44" height="12" rx="6" fill="#2A2520"></rect>
+    <rect x="188" y="230" width="24" height="4" rx="2" fill="#6B645B"></rect>
+  </svg>
+</template>
+
+<script src="app.js?v=20261023b" defer></script>
+</body>
+</html>

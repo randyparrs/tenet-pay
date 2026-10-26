@@ -1,0 +1,24 @@
+# Tenet's payment gateway : the relayer of the gateway escrow and owner of the gateway
+# judges, the store registration, the checkout API and the store emails (Cloudflare Email Routing:
+# order-*@paytenet.site and register-*@paytenet.site to this Worker). Separate from tenet-demo. Secrets, never
+# in this file:
+#   wrangler secret put GATEWAY_KEY          (a new key: gateway relayer and owner of the gateway judges)
+#   wrangler secret put OPENROUTER_API_KEY   (the F1 draft, Llama 3.3 70B)
+#   wrangler secret put CIRCLE_API_KEY       (Circle wallets for buyers; without it the page offers browser wallets only)
+name = "tenet-gateway"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+ARC_RPC = "https://rpc.testnet.arc.io"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[durable_objects.bindings]]
+name = "GATEWAY"
+class_name = "GatewayState"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["GatewayState"]

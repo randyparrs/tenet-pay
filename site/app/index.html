@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenet Pay</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0D1310">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<!--
+  The page that lived here (My orders, For stores, Store panel) moved on 2026-10-23:
+  buyers to paytenet.site/orders/, stores to merchants.paytenet.site. Its old links keep working:
+    #orders, #orders/<n>   -> /orders/#/orders[/<n>]
+    #pay/<n>               -> /#pay/<n> (the checkout)
+    #stores                -> merchants.paytenet.site/#/register
+    #panel                 -> merchants.paytenet.site/#/orders
+    #how                   -> /how/ (How it works, for buyers)
+    anything else          -> merchants.paytenet.site
+-->
+<script>
+(function () {
+  var MERCHANTS = 'https://merchants.paytenet.site/';
+  var h = (window.location.hash || '').replace(/^#\/?/, '');
+  var m = /^orders(?:\/([A-Za-z0-9-]{1,40}))?\/?$/.exec(h), p = /^pay\/([A-Za-z0-9-]{1,40})$/.exec(h);
+  var to = m ? '/orders/#/orders' + (m[1] ? '/' + m[1] : '')
+    : p ? '/#pay/' + p[1]
+    : /^stores\b/.test(h) ? MERCHANTS + '#/register'
+    : /^panel\b/.test(h) ? MERCHANTS + '#/orders'
+    : /^how\b/.test(h) ? '/how/'
+    : MERCHANTS;
+  window.location.replace(to);
+})();
+</script>
+<noscript><meta http-equiv="refresh" content="0; url=https://merchants.paytenet.site/"></noscript>
+<style>
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0D1310; color: #93A29A; font: 15px/1.6 system-ui, sans-serif; padding: 16px; }
+  a { color: #B4F0CB; }
+</style>
+</head>
+<body>
+  <p>Tenet Pay for stores is now at <a href="https://merchants.paytenet.site/">merchants.paytenet.site</a>. Buyers: <a href="/orders/">My orders</a>.</p>
+</body>
+</html>

@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>How Tenet Pay works</title>
+<meta name="description" content="How Tenet Pay works: you pay into an escrow on Arc; the store is paid when the hold ends, or you get your money back if a GenLayer judge decides a claim for you.">
+<meta name="theme-color" content="#0D1310">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261023a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css?v=20261023a">
+<!-- How it works: fixed content, no data, no script. Built with the checkout's styles. -->
+<style>
+  .how-head { display: flex; flex-direction: column; gap: 10px; max-width: 680px; }
+  .how-lead { margin: 0; font-size: 15.5px; line-height: 1.6; color: var(--text-3); text-wrap: pretty; }
+  .how-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .how-step { display: grid; grid-template-columns: 32px 1fr; gap: 16px; padding: 18px 22px; border-top: 1px solid var(--line-2); }
+  .how-step:first-child { border-top: 0; }
+  .how-step__n { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 500;
+    color: var(--mint); background: rgba(92, 196, 138, 0.1); border: 1px solid rgba(92, 196, 138, 0.25); }
+  .how-step__text { display: flex; flex-direction: column; gap: 4px; }
+  .how-step__title { font-size: 15.5px; font-weight: 600; }
+  .how-step__body { font-size: 14px; line-height: 1.6; color: var(--text-3); text-wrap: pretty; }
+  .how-try { display: flex; flex-direction: column; gap: 14px; }
+  .how-try__text { margin: 0; font-size: 14px; line-height: 1.6; color: var(--text-3); text-wrap: pretty; }
+  .how-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <header class="site-header" id="site-header">
+    <div class="site-header__inner">
+      <a href="../" class="brand" id="brand-home">
+        <span class="tenet-icon tenet-icon--26"><svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true"><defs><linearGradient id="tn1-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1D4A32"></stop><stop offset="1" stop-color="#0E1411"></stop></linearGradient></defs><rect width="64" height="64" rx="14" fill="url(#tn1-grad)"></rect><rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#5CC48A" stroke-opacity="0.45" stroke-width="2"></rect><path d="M32 14v36M14 32h36" stroke="#B4F0CB" stroke-width="5.5" stroke-linecap="round"></path></svg></span>
+        <span class="brand__word">TENET <span class="brand__accent">PAY</span></span>
+      </a>
+      <span class="header-divider"></span>
+      <span class="header-tagline">How it works.</span>
+      <div class="header-right">
+        <span class="badge-testnet" id="badge-testnet"><span class="badge-testnet__dot"></span>Testnet</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="main" id="main">
+    <div class="how-head">
+      <h1 class="checkout-head__title" id="how-title">Checkout with buyer protection</h1>
+      <p class="how-lead">A store offers Pay with Tenet. You pay into an escrow on Arc. The store is paid when the hold ends, or you get your money back if a judge on GenLayer decides a claim for you.</p>
+    </div>
+
+    <ol class="card how-steps" id="how-steps">
+      <li class="how-step"><span class="how-step__n mono">1</span><span class="how-step__text"><span class="how-step__title">The store registers</span><span class="how-step__body">It proves its domain with a DNS record, confirms its refund terms and copies its order emails to Tenet, signed with its domain.</span></span></li>
+      <li class="how-step"><span class="how-step__n mono">2</span><span class="how-step__text"><span class="how-step__title">You pay on Tenet's checkout</span><span class="how-step__body">The page shows the store's refund terms and checks that they are the ones the escrow holds before you pay.</span></span></li>
+      <li class="how-step"><span class="how-step__n mono">3</span><span class="how-step__text"><span class="how-step__title">If something goes wrong, you open a claim</span><span class="how-step__body">Open a claim in My orders. The store answers from its panel, and its signed emails are verified on Lacre.</span></span></li>
+      <li class="how-step"><span class="how-step__n mono">4</span><span class="how-step__text"><span class="how-step__title">A judge decides, the escrow pays</span><span class="how-step__body">A judge on GenLayer decides with the store's terms, and the escrow pays you back or pays the store.</span></span></li>
+    </ol>
+
+    <div class="testnet-note" id="how-testnet"><span class="dot dot--amber"></span>Testnet: payments use test USDC on Arc Testnet and deadlines run in minutes.</div>
+
+    <div class="card card--pad how-try" id="how-try">
+      <p class="how-try__text">An example store is open: TechShopping. Its earbuds arrive late, its charger is not the one described and its phone case never arrives, so each path of a claim can be tried.</p>
+      <div class="how-actions">
+        <a href="https://techshopping.site" class="btn-outline" id="how-try-store" target="_blank" rel="noopener"><span>Try it at techshopping.site</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>
+        <a href="../orders/" class="btn-text" id="how-my-orders">My orders</a>
+        <a href="https://merchants.paytenet.site" class="btn-text" id="how-for-stores">For stores</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer" id="site-footer">
+    <div class="site-footer__inner">
+      <div class="site-footer__left">
+        <span class="site-footer__text">Protected by Tenet: escrow on Arc Network, disputes judged on GenLayer, store emails verified with Lacre</span>
+        <span class="site-footer__links"><a href="https://tenet.rpmdev.app" id="footer-tenet">tenet.rpmdev.app</a><a href="https://techshopping.site" id="footer-techshopping">techshopping.site</a></span>
+      </div>
+      <div class="site-footer__chips">
+        <span class="stack-chip"><span class="stack-chip__k mono">ESCROW</span>Arc Network</span>
+        <span class="stack-chip"><span class="stack-chip__k mono">JUDGE</span>GenLayer</span>
+        <span class="stack-chip"><span class="stack-chip__k mono">EMAILS</span>Lacre</span>
+      </div>
+    </div>
+  </footer>
+</div>
+</body>
+</html>

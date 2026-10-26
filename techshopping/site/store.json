@@ -1,0 +1,123 @@
+{
+ "store": {
+  "currency": "USDC",
+  "checkoutUrlTemplate": "https://paytenet.site/#pay/{orderId}",
+  "claimUrlTemplate": "https://paytenet.site/orders/#/orders/{orderId}"
+ },
+ "hero": [
+  {
+   "productId": "earbuds",
+   "art": "buds",
+   "label": "Wireless earbuds",
+   "priceLabel": "3 USDC",
+   "soldOut": false
+  },
+  {
+   "productId": "charger",
+   "art": "charger",
+   "label": "65 W charger",
+   "priceLabel": "2 USDC",
+   "soldOut": false
+  },
+  {
+   "productId": "case",
+   "art": "case",
+   "label": "Phone case",
+   "priceLabel": "1 USDC",
+   "soldOut": false
+  },
+  {
+   "productId": "powerbank",
+   "art": "powerbank",
+   "label": "Power bank 10,000 mAh",
+   "priceLabel": "",
+   "soldOut": true
+  }
+ ],
+ "products": [
+  {
+   "id": "earbuds",
+   "art": "buds",
+   "name": "Wireless earbuds",
+   "price": "3.00",
+   "currency": "USDC",
+   "scenario": "arrives one day late",
+   "description": "Wireless earbuds TS-E1, black, with charging case, delivered by the estimated date.",
+   "specs": [
+    {
+     "label": "Model",
+     "value": "TS-E1"
+    },
+    {
+     "label": "Color",
+     "value": "Black"
+    },
+    {
+     "label": "Case",
+     "value": "Charging case included"
+    },
+    {
+     "label": "Delivery",
+     "value": "By the estimated date"
+    }
+   ],
+   "scenarioNote": "The earbuds arrive one day after the estimated date: the store sends its delivery email at 00:05 UTC the next day. Open a claim \"It arrived late\" after it."
+  },
+  {
+   "id": "charger",
+   "art": "charger",
+   "name": "USB-C charger 65 W",
+   "price": "2.00",
+   "currency": "USDC",
+   "scenario": "not as described",
+   "description": "USB-C wall charger, 65 W, model TS-C65, with a 1 m cable.",
+   "specs": [
+    {
+     "label": "Output",
+     "value": "65 W"
+    },
+    {
+     "label": "Model",
+     "value": "TS-C65"
+    },
+    {
+     "label": "Port",
+     "value": "USB-C"
+    },
+    {
+     "label": "Cable",
+     "value": "1 m included"
+    }
+   ],
+   "scenarioNote": "The charger that arrives is not the one described. Open a claim \"It is not what the description says\" once it is delivered."
+  },
+  {
+   "id": "case",
+   "art": "case",
+   "name": "Phone case",
+   "price": "1.00",
+   "currency": "USDC",
+   "scenario": "never arrives",
+   "description": "Clear phone case for 6.1 inch phones.",
+   "specs": [
+    {
+     "label": "Fits",
+     "value": "6.1 in phones"
+    },
+    {
+     "label": "Finish",
+     "value": "Clear"
+    },
+    {
+     "label": "Type",
+     "value": "Phone case"
+    },
+    {
+     "label": "Weight",
+     "value": "28 g"
+    }
+   ],
+   "scenarioNote": "The case never arrives: the store sends the confirmation and shipping emails, never a delivery one. Open a claim \"It never arrived\"."
+  }
+ ]
+}

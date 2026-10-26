@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenet Pay for stores</title>
+<meta name="description" content="Tenet Pay for stores: register your store, answer claims, refund and withdraw. Payments are held in escrow on Arc; a GenLayer judge decides claims from your signed emails and terms.">
+<meta name="theme-color" content="#0D1310">
+<meta name="tenet-gateway-api" content="https://tenet-gateway.randyparra.workers.dev">
+<link rel="icon" type="image/svg+xml" href="favicon.svg?v=20261023a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20261023f">
+</head>
+<body>
+<!--
+  Visibility rules used by app.js:
+    data-visible-reg="txt txtfail"     shown when the registration stage is one of the listed values
+    data-visible-action="respond"      shown when the selected order needs that action
+    data-visible-flag="busy"           shown when that UI flag is true ("!busy" for false)
+    data-visible-wallet="connected"    wallet status: disconnected, connecting, connected, error
+    data-visible-status="ready"        store data: loading, down, ready
+  An element with several rules is shown only when all of them match.
+
+  Sign buttons (class sign-btn) read their copy from data-label-* and data-sub-* attributes.
+  {name} placeholders are filled by app.js from the current data.
+-->
+<div class="app" id="app" data-view="register" data-reg="nostore" data-wallet="disconnected" data-status="loading">
+
+  <header class="site-header" id="site-header">
+    <div class="site-header__inner">
+      <a href="#/register" class="brand" id="brand-home">
+        <span class="tenet-icon tenet-icon--26" data-icon="tenet"></span>
+        <span class="brand__word">TENET <span class="brand__accent">PAY</span></span>
+      </a>
+      <span class="tag-stores mono">for stores</span>
+      <span class="header-divider"></span>
+      <span class="header-store" data-field="ui.storeLabel"></span>
+      <div class="header-right">
+        <span class="badge-testnet" id="badge-testnet"><span class="badge-testnet__dot"></span>Testnet</span>
+
+        <button type="button" class="wallet-connect-btn" id="wallet-connect" data-action="open-menu" data-menu-target="connect" data-visible-wallet="disconnected">Connect</button>
+        <span class="wallet-connecting" id="wallet-connecting" data-visible-wallet="connecting"><span class="spin spin--18"></span>Connecting</span>
+        <button type="button" class="wallet-chip" id="wallet-account" data-action="open-menu" data-menu-target="account" data-visible-wallet="connected">
+          <span class="avatar avatar--24"></span>
+          <span class="mono wallet-chip__addr" data-field="wallet.addressShort"></span>
+          <span class="wallet-chip__bal mono"><span><span data-field="wallet.balance"></span> USDC</span></span>
+        </button>
+        <button type="button" class="wallet-error-btn" id="wallet-wrong-network" data-action="open-menu" data-menu-target="network" data-visible-wallet="error"><span class="dot dot--red"></span>Wrong network</button>
+
+        <div class="menu menu--connect" id="menu-connect" data-menu="connect" hidden>
+          <div class="menu__heading">Connect a wallet on <span data-field="network.name"></span></div>
+          <div class="notice-red" id="wallet-message" data-visible-flag="walletMessage"><span data-field="ui.walletMessage"></span></div>
+          <button type="button" class="menu-option" id="connect-browser-wallet" data-action="choose-wallet" data-wallet-type="browser">
+            <span class="menu-option__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 9h18"></path></svg></span>
+            <span class="menu-option__text"><span class="menu-option__title">Browser wallet</span><span class="menu-option__sub">MetaMask, Rabby or another wallet extension, on Arc testnet.</span></span>
+          </button>
+        </div>
+
+        <div class="menu menu--panel" id="menu-account" data-menu="account" hidden>
+          <div class="menu-stack"><span class="menu__label">Connected on <span data-field="network.name"></span></span><span class="mono menu__address" data-field="wallet.address"></span></div>
+          <div class="menu-row"><span>USDC balance</span><span class="mono ink"><span data-field="wallet.balance"></span> USDC</span></div>
+          <button type="button" class="btn-ghost btn-ghost--sm" id="wallet-switch-account" data-action="open-menu" data-menu-target="connect">Change account</button>
+          <button type="button" class="btn-ghost btn-ghost--sm" id="wallet-disconnect" data-action="disconnect">Disconnect</button>
+        </div>
+
+        <div class="menu menu--panel menu--danger" id="menu-network" data-menu="network" hidden>
+          <span class="menu__danger-title">Your wallet is on another network</span>
+          <span class="menu__text">Tenet Pay for stores only works on <span data-field="network.name"></span> (chain <span data-field="network.chainId"></span>).</span>
+          <button type="button" class="btn-light btn-light--sm" id="menu-switch-network" data-action="switch-network"><span>Switch to <span data-field="network.name"></span></span></button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="menu-backdrop" id="menu-backdrop" data-action="close-menu" hidden></div>
+
+  <!-- Screen: no wallet, connecting or wrong network. The store is the wallet that registers it. -->
+  <main class="main main--gate" id="screen-wallet" data-visible-wallet="disconnected connecting error">
+    <section class="center-card">
+      <span class="center-card__icon" data-visible-wallet="disconnected connecting"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"></rect><path d="M3 10h18M16 15h2"></path><path d="M6 6l9-3 2 3"></path></svg></span>
+      <span class="center-card__icon center-card__icon--red" data-visible-wallet="error"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16v.5"></path></svg></span>
+      <h1 class="center-card__title" data-visible-wallet="disconnected">Connect your store's wallet</h1>
+      <h1 class="center-card__title" data-visible-wallet="connecting">Connecting your wallet</h1>
+      <h1 class="center-card__title" data-visible-wallet="error">Your wallet is on another network</h1>
+      <p class="center-card__body" data-visible-wallet="disconnected">The wallet that registers a store is the store: it receives payouts and signs every answer to a claim. Connect it to register a store or open its panel.</p>
+      <p class="center-card__body" data-visible-wallet="connecting">Approve the connection in your wallet.</p>
+      <p class="center-card__body" data-visible-wallet="error">Tenet Pay for stores only works on <span data-field="network.name"></span> (chain <span data-field="network.chainId"></span>). Switch networks to continue.</p>
+      <div class="center-card__actions">
+        <button type="button" class="btn-light" id="gate-connect" data-action="open-menu" data-menu-target="connect" data-visible-wallet="disconnected">Connect wallet</button>
+        <span class="wallet-connecting" id="gate-connecting" data-visible-wallet="connecting"><span class="spin spin--18"></span>Waiting for your wallet</span>
+        <button type="button" class="btn-light" id="gate-switch-network" data-action="switch-network" data-visible-wallet="error"><span>Switch to <span data-field="network.name"></span></span></button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Screen: loading the store, or Tenet cannot be reached -->
+  <main class="main main--gate" id="screen-status" data-visible-wallet="connected" data-visible-status="loading down">
+    <section class="center-card">
+      <span class="wallet-connecting" id="store-loading" data-visible-status="loading"><span class="spin spin--18"></span>Loading your store</span>
+      <h1 class="center-card__title" data-visible-status="down">Tenet cannot be reached</h1>
+      <p class="center-card__body" data-visible-status="down">The store's data could not be loaded. Nothing was signed or sent. Try again in a moment.</p>
+      <div class="center-card__actions" data-visible-status="down"><button type="button" class="btn-light" id="retry-load" data-action="retry-load">Try again</button></div>
+    </section>
+  </main>
+
+  <div class="layout" id="layout" data-visible-wallet="connected" data-visible-status="ready">
+    <nav class="sidebar" id="sidebar">
+      <span class="sidebar__label mono">STORE</span>
+      <a href="#/register" class="nav-item" id="nav-register" data-nav="register"><span class="nav-item__label">Registration</span><span class="nav-item__meta mono" data-nav-meta="register"></span></a>
+      <a href="#/orders" class="nav-item" id="nav-orders" data-nav="orders"><span class="nav-item__label">Orders</span><span class="nav-item__lock"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg></span><span class="nav-item__meta nav-item__meta--amber mono" data-nav-meta="orders"></span></a>
+      <a href="#/balance" class="nav-item" id="nav-balance" data-nav="balance"><span class="nav-item__label">Balance</span><span class="nav-item__lock"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg></span></a>
+      <a href="#/terms" class="nav-item" id="nav-terms" data-nav="terms"><span class="nav-item__label">Terms</span><span class="nav-item__lock"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg></span></a>
+      <div class="sidebar__foot">
+        <span>Your wallet pays gas in USDC to answer, refund and withdraw.</span>
+        <a href="#" id="sidebar-buyer-checkout" data-field-href="links.buyerCheckout">Buyer checkout</a>
+      </div>
+    </nav>
+
+    <main class="main" id="main">
+
+      <!-- ===== Screen: registration (#/register) ===== -->
+      <section class="screen" id="screen-register" data-screen="register">
+        <div class="page-head">
+          <h1 class="page-title">Register your store</h1>
+          <span class="page-sub">Four steps. Your store goes live when Tenet has set up its judges and escrow.</span>
+        </div>
+        <div class="steps" id="reg-steps"></div>
+        <div class="alert alert--red panel--720" id="reg-error" data-visible-flag="regError">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>
+          <div class="alert__text"><span class="alert__title">That did not go through</span><span class="alert__body" data-field="ui.regError"></span></div>
+        </div>
+
+        <!-- Stage: nostore -->
+        <div class="panel panel--620" id="reg-domain" data-visible-reg="nostore">
+          <div class="panel__head"><span class="panel__title">Prove the domain</span><span class="panel__sub">Start with the domain your store sells from.</span></div>
+          <label class="field"><span class="field__label">Store domain</span>
+            <input class="input input--lg mono" id="f-domain" name="domain" placeholder="yourstore.com" autocomplete="off">
+          </label>
+          <div class="info-row"><span class="info-row__dot"></span><span>This wallet <span class="mono ink" data-field="wallet.addressShort"></span> becomes the store's wallet. It receives payouts and signs every answer to a claim.</span></div>
+          <div class="row-actions">
+            <button type="button" class="btn-green" id="reg-start" data-action="start-registration"><span class="spin spin--14 spin--dark" data-visible-flag="busy"></span>Start</button>
+            <span class="hint">Up to 5 new stores per day on testnet.</span>
+          </div>
+        </div>
+
+        <!-- Stage: txt, txtfail -->
+        <div class="panel panel--720" id="reg-txt" data-visible-reg="txt txtfail">
+          <div class="panel__head"><span class="panel__title">Add this TXT record</span><span class="panel__sub">At your DNS provider, create one TXT record for <span data-field="store.domain"></span>. It proves the domain belongs to this wallet.</span></div>
+          <div class="kv-box">
+            <div class="kv-row"><span class="kv-row__k mono">NAME</span><code class="kv-row__v mono" data-field="registration.txt.name"></code><button type="button" class="copy-btn mono" id="copy-txt-name" data-action="copy" data-copy-key="txtName" data-copy-field="registration.txt.name"><span data-copy-label>Copy</span></button></div>
+            <div class="kv-row"><span class="kv-row__k mono">VALUE</span><code class="kv-row__v mono" data-field="registration.txt.value"></code><button type="button" class="copy-btn mono" id="copy-txt-value" data-action="copy" data-copy-key="txtValue" data-copy-field="registration.txt.value"><span data-copy-label>Copy</span></button></div>
+          </div>
+          <div class="alert alert--red" id="txt-fail" data-visible-reg="txtfail">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>
+            <div class="alert__text"><span class="alert__title">The TXT record was not found</span><span class="alert__body"><span data-field="registration.txt.name"></span> has no TXT record with this value. DNS changes can take a few minutes to appear. Checked <span data-field="registration.txt.checkedAt"></span>: <span data-field="registration.txt.reason"></span>.</span></div>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn-green" id="reg-check-txt" data-action="check-txt"><span class="spin spin--14 spin--dark" data-visible-flag="busy"></span><span data-visible-flag="!busy">Check the TXT record</span><span data-visible-flag="busy">Checking DNS</span></button>
+            <span class="hint">Nothing is signed in this step.</span>
+          </div>
+        </div>
+
+        <!-- Stage: policy -->
+        <div class="panel panel--820" id="reg-policy" data-visible-reg="policy">
+          <div class="panel__head"><span class="panel__title">Confirm the terms</span><span class="panel__sub">Paste your current refund policy. Tenet drafts structured terms from it that you can edit before signing.</span></div>
+          <div class="field">
+            <div class="field__label-row"><span>Refund policy</span><span class="mono counter" id="policy-counter"><span data-field="ui.policyCount"></span> / 6000</span></div>
+            <textarea class="textarea" id="f-policy" name="policy" maxlength="6000" rows="9"></textarea>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn-green" id="reg-draft" data-action="draft-terms">Draft my terms</button>
+            <span class="hint">Drafted by Llama 3.3 70B. Nothing is signed yet.</span>
+          </div>
+        </div>
+
+        <!-- Stage: drafting -->
+        <div class="panel panel--820 panel--active" id="reg-drafting" data-visible-reg="drafting">
+          <div class="drafting-head"><span class="spin spin--16"></span><span class="drafting-head__title">Llama 3.3 70B is drafting your terms</span><span class="drafting-head__meta mono">usually under a minute</span></div>
+          <div class="sweep-lines">
+            <div class="sweep-line"><span class="sweep"></span></div>
+            <div class="sweep-line"><span class="sweep"></span></div>
+            <div class="sweep-line"><span class="sweep"></span></div>
+            <div class="sweep-line"><span class="sweep"></span></div>
+          </div>
+          <span class="panel__sub">Reading refund percentages, waiting days and claim deadlines from your policy.</span>
+        </div>
+
+        <!-- Stage: draft -->
+        <div class="draft-grid" id="reg-draft-terms" data-visible-reg="draft">
+          <div class="stack-14">
+            <div class="draft-head"><span class="panel__title">Your terms, by rule</span><span class="hint">Drafted from your policy. Edit anything.</span></div>
+            <div class="stack-14" id="rule-editors" data-list="rules"></div>
+            <div class="card stack-14 conditions-card" id="store-conditions" data-flagged="false">
+              <div class="rule-editor__head"><span class="text-strong">Conditions for the whole store</span><span class="mono hint">read from your policy</span></div>
+              <div class="fields-grid fields-grid--review">
+                <label class="field"><span class="field__label field__label--flex">Preconditions<span class="review-tag mono">REVIEW</span></span><input class="input input--review" id="f-preconditions" name="preconditions" placeholder="Leave empty" data-review-field="pre"></label>
+                <label class="field"><span class="field__label field__label--flex">Excluded causes<span class="review-tag mono">REVIEW</span></span><input class="input input--review" id="f-excluded-causes" name="excludedCauses" placeholder="Leave empty" data-review-field="excl"></label>
+                <label class="field" data-visible-flag="otherLimits"><span class="field__label field__label--flex">Other limits<span class="review-tag mono">REVIEW</span></span><input class="input input--review" id="f-other-limits" name="otherLimits" placeholder="Leave empty" data-review-field="other"></label>
+              </div>
+              <span class="rule-editor__flag" id="conditions-flag" data-field="ui.conditionsFlag"></span>
+            </div>
+
+            <div class="card stack-14" id="dates-card">
+              <span class="card__title">Dates, orders and payouts</span>
+              <div class="field"><span class="field__label">Day type</span>
+                <div class="segmented" id="f-day-type" role="group">
+                  <button type="button" class="segmented__btn" id="day-type-calendar" data-action="set-day-type" data-day-type="calendar" aria-pressed="true">Calendar days</button>
+                  <button type="button" class="segmented__btn" id="day-type-business" data-action="set-day-type" data-day-type="business" aria-pressed="false">Business days</button>
+                </div>
+              </div>
+              <div class="fields-grid">
+                <label class="field"><span class="field__label">Promised date label</span><input class="input mono" id="f-promised-label" name="promisedLabel" data-form-field="promised"></label>
+                <label class="field"><span class="field__label">Delivery date label</span><input class="input mono" id="f-delivered-label" name="deliveredLabel" data-form-field="delivered"></label>
+                <label class="field"><span class="field__label">Order prefix</span><input class="input mono" id="f-order-prefix" name="orderPrefix" data-form-field="prefix"></label>
+                <label class="field"><span class="field__label">Order digits, 4 to 10</span><input class="input mono" id="f-order-digits" name="orderDigits" type="number" min="4" max="10" data-form-field="digits"></label>
+                <label class="field"><span class="field__label">Hold days, 7 to 180</span><input class="input mono" id="f-hold-days" name="holdDays" type="number" min="7" max="180" data-form-field="hold"></label>
+                <span class="order-example mono">e.g. <span data-field="ui.orderExample"></span></span>
+              </div>
+              <label class="field"><span class="field__label">Webhook URL</span><input class="input mono" id="f-webhook-url" name="webhookUrl" data-form-field="webhook"></label>
+              <span class="form-error" id="form-error" data-field="ui.formError"></span>
+            </div>
+          </div>
+
+          <div class="sticky-col">
+            <div class="card card--flush">
+              <div class="preview-head"><span class="dot dot--green"></span><span class="preview-head__title">What buyers will see</span><span class="hint preview-head__meta">exact text, hashed when you sign</span></div>
+              <pre class="terms-text terms-text--preview" id="terms-preview" data-field="ui.termsText"></pre>
+            </div>
+            <div class="card stack-12">
+              <button type="button" class="sign-btn" id="sign-confirm" data-action="sign" data-sign="confirm" data-sign-type="message"
+                data-label-idle="Sign and confirm" data-label-done="Terms confirmed"
+                data-sub-idle="A message signature from {walletShort}. No gas." data-sub-done="Signed {confirmedAt}. The terms hash is fixed." data-sub-disabled="{formError}">
+                <span class="spin spin--16 sign-btn__spin"></span><svg class="sign-btn__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="sign-btn__label"></span>
+              </button>
+              <span class="sign-sub" data-sign-sub="confirm"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Stage: test, testfail -->
+        <div class="test-grid" id="reg-test" data-visible-reg="test testfail">
+          <div class="card card--danger stack-16" id="creds-visible" data-visible-flag="!credsHidden">
+            <div class="alert alert--red-soft">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9.5 17h-19L12 3z"></path><path d="M12 10v4M12 17v.5"></path></svg>
+              <div class="alert__text"><span class="alert__title">Shown only once</span><span class="alert__body">Copy both now and store them on your server. Tenet does not keep them and cannot show them again.</span></div>
+            </div>
+            <div class="field"><span class="label-caps mono">API KEY</span>
+              <div class="secret-row"><code class="mono secret-row__v" data-field="registration.credentials.apiKey"></code><button type="button" class="copy-btn mono" id="copy-api-key" data-action="copy" data-copy-key="apiKey" data-copy-field="registration.credentials.apiKey"><span data-copy-label>Copy</span></button></div>
+            </div>
+            <div class="field"><span class="label-caps mono">WEBHOOK SECRET</span>
+              <div class="secret-row"><code class="mono secret-row__v" data-field="registration.credentials.webhookSecret"></code><button type="button" class="copy-btn mono" id="copy-webhook-secret" data-action="copy" data-copy-key="webhookSecret" data-copy-field="registration.credentials.webhookSecret"><span data-copy-label>Copy</span></button></div>
+            </div>
+            <button type="button" class="btn-outline" id="hide-credentials" data-action="hide-credentials">I saved both. Hide them for good</button>
+          </div>
+          <div class="card card--row" id="creds-hidden" data-visible-flag="credsHidden">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64726A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg>
+            <div class="stack-3"><span class="text-strong">API key and webhook secret</span><span class="hint hint--lg">Shown once on <span data-field="registration.credentials.shownAt"></span>. They cannot be shown again.</span></div>
+          </div>
+
+          <div class="card stack-16" id="test-email-card">
+            <div class="panel__head"><span class="panel__title">Send a test email</span><span class="panel__sub">From your store's mail system, send any email to this address. It proves your emails are signed so Lacre can verify them later.</span></div>
+            <div class="secret-row secret-row--accent"><code class="mono secret-row__v" data-field="registration.testEmail.address"></code><button type="button" class="copy-btn mono" id="copy-test-address" data-action="copy" data-copy-key="testAddress" data-copy-field="registration.testEmail.address"><span data-copy-label>Copy</span></button></div>
+            <div class="facts">
+              <span class="label-dim">Signed</span><span>with DKIM for <span data-field="store.domain"></span></span>
+              <span class="label-dim">Format</span><span>multipart, with a plain text part</span>
+              <span class="label-dim">Size</span><span>12 KB at most</span>
+            </div>
+            <div class="alert alert--red alert--stack" id="test-fail" data-visible-reg="testfail">
+              <span class="alert__title">Last test email, received <span data-field="registration.testEmail.lastReceivedAt"></span>, did not pass</span>
+              <div class="fail-list" id="test-fail-list" data-list="registration.testEmail.failures"></div>
+            </div>
+            <div class="waiting-row" id="test-waiting" data-visible-reg="test"><span class="live-dot"></span>No test email received yet.</div>
+            <button type="button" class="btn-green btn-green--start" id="reg-check-test" data-action="check-test"><span class="spin spin--14 spin--dark" data-visible-flag="busy"></span><span data-visible-flag="!busy">Check again</span><span data-visible-flag="busy">Checking</span></button>
+          </div>
+        </div>
+
+        <!-- Stage: key, key_pending, judges, escrow -->
+        <div class="panel panel--780 panel--activation" id="reg-activation" data-visible-reg="key key_pending judges escrow">
+          <div class="activation-head">
+            <div class="activation-head__text">
+              <span class="activation-head__kicker mono"><span class="live-dot"></span>PENDING ACTIVATION</span>
+              <span class="activation-head__title" data-visible-reg="key">Registering your DKIM key</span>
+              <span class="activation-head__title" data-visible-reg="key_pending">Waiting for your DKIM key to be confirmed</span>
+              <span class="activation-head__title" data-visible-reg="judges">Setting up the judges on GenLayer</span>
+              <span class="activation-head__title" data-visible-reg="escrow">Registering your store in the escrow on Arc</span>
+              <span class="activation-head__body" data-visible-reg="key">Tenet is registering the key that signs your emails, so Lacre can verify them on future claims.</span>
+              <span class="activation-head__body" data-visible-reg="key_pending">Your DKIM key is registered. Lacre is confirming it before the judges are set up.</span>
+              <span class="activation-head__body" data-visible-reg="judges">Your DKIM key was already active, so Tenet went straight to the judges. This is the longest stage, usually about 70 minutes.</span>
+              <span class="activation-head__body" data-visible-reg="escrow">The judges are ready. Tenet is registering your store and its terms hash in the escrow. Almost done.</span>
+            </div>
+            <div class="activation-head__time" data-visible-flag="elapsedKnown">
+              <span class="activation-head__elapsed mono" id="activation-elapsed" data-field="ui.elapsed"></span>
+              <span class="hint">of about 75 min</span>
+            </div>
+          </div>
+          <div class="progress-track"><div class="progress-track__fill" id="activation-progress"></div></div>
+          <div class="stages" id="activation-stages">
+            <div class="stage" data-stage="dkim" data-stage-meta="about 5 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">DKIM key registered for Lacre</span><span class="stage__meta mono"></span></div>
+            <div class="stage" data-stage="judges" data-stage-meta="about 70 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">Judges set up on GenLayer</span><span class="stage__meta mono"></span></div>
+            <div class="stage" data-stage="escrow" data-stage-meta="about 1 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">Store registered in the escrow on Arc</span><span class="stage__meta mono"></span></div>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn-outline" id="reg-check-again" data-action="check-activation"><span class="spin spin--12" data-visible-flag="busy"></span>Check again</button>
+            <span class="hint">You can close this page. Activation continues on its own.</span>
+          </div>
+        </div>
+
+        <!-- Stage: failed -->
+        <div class="panel panel--680 panel--failed" id="reg-failed" data-visible-reg="failed">
+          <span class="kicker-red mono">REGISTRATION FAILED</span>
+          <span class="panel__title panel__title--lg">The activation did not finish</span>
+          <span class="panel__sub panel__sub--red"><span data-field="registration.failure"></span><span data-visible-flag="failedAtKnown"> (<span data-field="registration.failedAt"></span>)</span>. Your store is not active and no payments can reach it.</span>
+        </div>
+
+        <!-- Stage: active -->
+        <div class="panel panel--680 panel--success" id="reg-active" data-visible-reg="active">
+          <span class="success-badge"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+          <span class="panel__title panel__title--lg"><span data-field="store.domain"></span> is active</span>
+          <span class="panel__sub">Active since <span data-field="registration.activatedAt"></span>.<span id="activation-took" data-visible-flag="activationTime"> Activation took <span data-field="registration.activationMinutes"></span> minutes.</span> Buyers can now pay your orders through Tenet.</span>
+          <a href="#/orders" class="btn-light" id="open-store-panel">Open the store panel</a>
+        </div>
+      </section>
+
+      <!-- ===== Screen: locked panel ===== -->
+      <section class="screen" id="screen-locked" data-screen="locked" hidden>
+        <div class="panel panel--locked">
+          <span class="panel__title panel__title--md">Available when your store is active</span>
+          <span class="panel__sub">Finish the registration steps first. Orders, balance and terms appear here once Tenet activates the store.</span>
+          <a href="#/register" class="btn-outline btn-outline--start" id="locked-back-to-registration">Back to registration</a>
+        </div>
+      </section>
+
+      <!-- ===== Screen: orders (#/orders, #/orders/:orderId) ===== -->
+      <section class="screen" id="screen-orders" data-screen="orders" hidden>
+        <div class="page-head page-head--row">
+          <div class="stack-6"><h1 class="page-title">Orders</h1><span class="page-sub"><span data-field="ui.needCount"></span> need your action. Testnet windows are 5 minutes.</span></div>
+          <a href="#/balance" class="balance-pill" id="orders-go-balance"><span class="balance-pill__k">Released to you</span><span class="mono balance-pill__v"><span data-field="ui.claimable"></span> USDC</span></a>
+        </div>
+        <div class="orders-grid">
+          <div class="card card--flush orders-table" id="orders-table">
+            <div class="orders-row orders-row--head mono"><span>ORDER</span><span class="t-right">USDC</span><span>STATUS</span><span>PAID</span></div>
+            <div id="orders-list" data-list="orders"></div>
+            <span class="panel__sub panel__sub--sm orders-empty" id="orders-empty" data-visible-flag="noOrders">No orders yet. They appear here when your server creates them with its API key.</span>
+          </div>
+
+          <div class="card card--flush order-detail" id="order-detail" data-order-id="" data-visible-flag="!noOrders">
+            <div class="order-detail__head">
+              <span class="mono order-detail__id" data-field="sel.label"></span>
+              <span class="chip" id="order-detail-chip" data-tone=""><span data-field="sel.statusLabel"></span></span>
+              <span class="mono order-detail__amount"><span data-field="sel.amount"></span> USDC</span>
+            </div>
+            <div class="order-detail__body">
+              <div class="alert alert--red" id="order-error" data-visible-flag="orderError">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>
+                <div class="alert__text"><span class="alert__title">That did not go through</span><span class="alert__body" data-field="ui.orderError"></span></div>
+              </div>
+
+              <!-- Action: respond -->
+              <div class="stack-16" id="action-respond" data-visible-action="respond">
+                <div class="quote"><span class="quote__label" data-field="sel.quoteLabel"></span><span class="quote__text" data-field="sel.quote"></span></div>
+                <div class="between"><span class="text-strong" data-field="sel.responseTitle"></span><span class="countdown mono" data-countdown></span></div>
+                <textarea class="textarea" id="f-response" name="response" maxlength="1000" rows="6" placeholder="Answer with facts the judge can check: dates, tracking, what was shipped."></textarea>
+                <div class="between hint"><span>One answer per window. It goes on chain as written.</span><span class="mono counter" id="response-counter"><span data-field="ui.responseCount"></span> / <span data-field="ui.responseMax"></span></span></div>
+                <button type="button" class="sign-btn" id="sign-response" data-action="sign" data-sign="response" data-sign-scope="order" data-sign-type="tx"
+                  data-label-idle="{responseSendLabel}" data-label-done="Answer registered"
+                  data-sub-idle="A transaction on Arc from the store wallet. Only gas." data-sub-done="Read by Tenet. The judge has your answer." data-sub-disabled="{responseDisabledSub}">
+                  <span class="spin spin--16 sign-btn__spin"></span><svg class="sign-btn__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="sign-btn__label"></span>
+                </button>
+                <span class="sign-sub" data-sign-sub="response"></span>
+              </div>
+
+              <!-- Action: send_readable_email -->
+              <div class="stack-16" id="action-readable-email" data-visible-action="send_readable_email">
+                <div class="alert alert--amber alert--stack"><span class="alert__title" data-field="sel.issueTitle"></span><span class="alert__body" data-field="sel.issueText"></span></div>
+                <div class="between wrap"><code class="mono accent-code" data-field="sel.orderAddress"></code><span class="countdown mono" data-countdown></span></div>
+                <span class="panel__sub panel__sub--sm">Multipart with a plain text part, signed with DKIM, 12 KB at most.</span>
+                <button type="button" class="sign-btn sign-btn--sm" id="sign-readable-email" data-action="sign" data-sign="readable" data-sign-scope="order" data-sign-type="message"
+                  data-label-idle="I sent a readable email" data-label-done="Readable email received"
+                  data-sub-idle="Tenet checks the order address for a new, readable email." data-sub-done="Lacre is attesting it. Usually 21 to 45 minutes." data-sub-disabled="The window closed.">
+                  <span class="spin spin--16 sign-btn__spin"></span><svg class="sign-btn__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="sign-btn__label"></span>
+                </button>
+                <span class="sign-sub" data-sign-sub="readable"></span>
+              </div>
+
+              <!-- Action: refund -->
+              <div class="stack-16" id="action-refund" data-visible-action="refund">
+                <div class="alert alert--red alert--stack"><span class="alert__title" data-field="sel.issueTitle"></span><span class="alert__body" data-field="sel.issueText"></span></div>
+                <button type="button" class="sign-btn" id="sign-refund" data-action="sign" data-sign="refund" data-sign-scope="order" data-sign-type="tx" data-sign-danger="true"
+                  data-label-idle="Refund in full" data-label-done="Refunded in full"
+                  data-sub-idle="Sends {refundAmount} USDC back to {refundTo}. Only gas." data-sub-done="{refundAmount} USDC returned to the sender.">
+                  <span class="spin spin--16 sign-btn__spin"></span><svg class="sign-btn__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="sign-btn__label"></span>
+                </button>
+                <span class="sign-sub" data-sign-sub="refund"></span>
+              </div>
+
+              <!-- Action: settled -->
+              <div class="settled" id="action-settled" data-visible-action="settled">
+                <span class="label-dim">Result</span><span class="t-end ink" data-field="sel.result"></span>
+                <span class="label-dim">To buyer</span><span class="t-end mono"><span data-field="sel.refunded"></span> USDC</span>
+                <span class="label-dim">Released to you</span><span class="t-end mono mint"><span data-field="sel.released"></span> USDC</span>
+              </div>
+
+              <!-- Action: none -->
+              <span class="panel__sub panel__sub--sm" id="action-none" data-visible-action="none">Nothing to do. The payment is held in escrow and released to you after <span data-field="store.holdDays"></span> days unless the buyer opens a claim.</span>
+              <span class="panel__sub panel__sub--sm" id="action-wait" data-visible-action="unpaid wait" data-field="sel.waitText"></span>
+
+              <div class="timeline">
+                <span class="label-caps mono timeline__title">TIMELINE · LAST 6</span>
+                <div id="order-timeline" data-list="sel.events"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Screen: balance (#/balance) ===== -->
+      <section class="screen" id="screen-balance" data-screen="balance" hidden>
+        <h1 class="page-title">Balance</h1>
+        <div class="balance-grid">
+          <div class="card stack-18">
+            <div class="stack-6"><span class="panel__sub">Released to you, ready to withdraw</span><span class="big-amount mono"><span data-field="ui.claimable"></span> <span class="big-amount__cur">USDC</span></span></div>
+            <div class="sources" id="balance-sources" data-list="balance.sources"></div>
+            <button type="button" class="sign-btn" id="sign-withdraw" data-action="sign" data-sign="withdraw" data-sign-type="tx"
+              data-label-idle="Withdraw {claimableBefore} USDC" data-label-done="Withdrawn"
+              data-sub-disabled="Nothing released to this wallet yet."
+              data-sub-idle="Withdraws everything released to this wallet, from all orders." data-sub-done="{claimableBefore} USDC sent to {walletShort} · tx {withdrawTxShort}">
+              <span class="spin spin--16 sign-btn__spin"></span><svg class="sign-btn__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="sign-btn__label"></span>
+            </button>
+            <span class="sign-sub" data-sign-sub="withdraw"></span>
+            <div class="alert alert--red" id="withdraw-error" data-visible-flag="orderError">
+              <div class="alert__text"><span class="alert__title">That did not go through</span><span class="alert__body" data-field="ui.orderError"></span></div>
+            </div>
+          </div>
+          <div class="card stack-14">
+            <div class="gas-row">
+              <span class="arc-logo" data-slot="arc-logo" title="Arc Network"><svg viewBox="0 0 500 500" width="30" height="30" fill="none" aria-hidden="true"><rect width="500" height="500" rx="250" fill="#1B3158"/> <path d="M250.466 85C291.387 85 327.762 120.453 352.899 184.828C365.973 218.31 375.592 258.091 381.291 301.368C381.801 305.233 382.234 309.161 382.679 313.081C382.824 313.323 382.911 313.548 382.881 313.731C382.881 313.731 386.231 334.649 386.942 371.001H386.564C381.597 366.924 323.011 320.889 225.894 334.219C227.359 317.784 229.374 301.793 231.978 286.465C232.111 285.682 232.265 284.925 232.4 284.147C270.491 282.999 303.831 287.422 329.397 293.219C329.302 292.612 329.223 291.988 329.126 291.384C323.871 258.658 316.118 228.697 306.121 203.093C289.776 161.227 268.447 135.216 250.466 135.216C232.486 135.216 211.157 161.228 194.812 203.093C190.856 213.219 187.254 224.019 184.024 235.41C179.483 251.372 175.668 268.484 172.621 286.464C168.112 313.017 165.295 341.496 164.257 371.001H114C116.319 300.984 128.19 235.639 148.033 184.828C173.165 120.453 209.545 85.0002 250.466 85Z" fill="white"/></svg></span>
+              <div class="stack-2"><span class="text-strong">Wallet USDC for gas</span><span class="mono hint"><span data-field="wallet.addressShort"></span> · <span data-field="network.name"></span></span></div>
+              <span class="mono gas-row__v" data-field="wallet.gasBalance"></span>
+            </div>
+            <span class="panel__sub panel__sub--sm">Answering a claim, refunding and withdrawing are transactions on Arc. Keep some USDC in this wallet to pay their gas.</span>
+            <div class="held">
+              <span class="panel__sub panel__sub--sm">Still held in escrow</span>
+              <div class="between mono"><span><span data-field="balance.heldOrders"></span> orders</span><span><span data-field="balance.heldAmount"></span> USDC</span></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== Screen: terms (#/terms) ===== -->
+      <section class="screen" id="screen-terms" data-screen="terms" hidden>
+        <div class="page-head page-head--860">
+          <h1 class="page-title">Terms</h1>
+          <span class="page-sub">What buyers read at checkout. Confirmed by signature on <span data-field="registration.confirmedAt"></span>.</span>
+        </div>
+        <div class="card card--flush terms-card">
+          <pre class="terms-text terms-text--full" id="terms-signed" data-field="ui.termsText"></pre>
+          <div class="terms-card__foot">
+            <span class="label-caps mono">SHA-256</span>
+            <span class="mono terms-card__hash" data-field="store.termsHash"></span>
+            <span class="terms-card__wait" id="terms-checking" data-visible-flag="termsChecking">Checking against the escrow on Arc</span>
+            <span class="terms-card__ok" id="terms-ok" data-visible-flag="termsOk">Registered in the escrow</span>
+            <span class="terms-card__bad" id="terms-bad" data-visible-flag="termsBad">Does not match the escrow on Arc (it holds <span class="mono" data-field="store.escrowHash"></span>). Do not take payments until it is fixed.</span>
+            <span class="terms-card__wait" id="terms-unknown" data-visible-flag="termsUnknown">The escrow on Arc could not be read right now</span>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+</div>
+
+<!-- ===== Templates used by app.js ===== -->
+<template id="tpl-step">
+  <div class="step" data-step="" data-step-state="todo">
+    <div class="step__row">
+      <span class="step__dot mono"><svg class="step__check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><svg class="step__lock" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg><span class="step__n"></span></span>
+      <span class="step__title"></span>
+    </div>
+    <span class="step__sub"></span>
+  </div>
+</template>
+
+<template id="tpl-rule-editor">
+  <div class="card stack-14 rule-editor" data-rule-key="" data-rule-index="">
+    <div class="rule-editor__head"><span class="text-strong rule-editor__name"></span><span class="mono hint rule-editor__key"></span></div>
+    <div class="fields-grid fields-grid--sm">
+      <label class="field"><span class="field__label">Refund %</span><input class="input input--sm mono" type="number" min="0" max="100" data-rule-field="refund"></label>
+      <label class="field"><span class="field__label">Wait days</span><input class="input input--sm mono" type="number" min="0" max="90" data-rule-field="wait"></label>
+      <label class="field"><span class="field__label">Claim within, days (0: no limit)</span><input class="input input--sm mono" type="number" min="0" max="365" data-rule-field="claim"></label>
+      <label class="field rule-editor__grace"><span class="field__label">Grace days</span><input class="input input--sm mono" type="number" min="0" max="60" data-rule-field="grace"></label>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-fail-item">
+  <div class="fail-item"><span class="mono fail-item__x">x</span><span class="fail-item__text"></span></div>
+</template>
+
+<template id="tpl-order-row">
+  <button type="button" class="orders-row orders-row--item" data-order-id="" aria-pressed="false">
+    <span class="orders-row__id"><span class="orders-row__dot"></span><span class="mono orders-row__id-text"></span></span>
+    <span class="t-right mono orders-row__amount"></span>
+    <span><span class="chip orders-row__chip" data-tone=""></span></span>
+    <span class="orders-row__paid"></span>
+  </button>
+</template>
+
+<template id="tpl-event">
+  <div class="event" data-tone="">
+    <span class="mono event__t"></span>
+    <span class="event__dot"></span>
+    <span class="event__what"></span>
+    <a href="#" class="mono event__tx" target="_blank" rel="noopener"></a>
+  </div>
+</template>
+
+<template id="tpl-source">
+  <div class="source"><span class="mono source__id"></span><span class="source__why"></span><span class="mono source__amt"></span></div>
+</template>
+
+<!-- Inline SVG: Tenet icon. Ids are made unique per copy by app.js -->
+<template id="icon-tenet">
+  <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+    <defs><linearGradient id="tn-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1D4A32"></stop><stop offset="1" stop-color="#0E1411"></stop></linearGradient></defs>
+    <rect width="64" height="64" rx="14" fill="url(#tn-grad)"></rect>
+    <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#5CC48A" stroke-opacity="0.45" stroke-width="2"></rect>
+    <path d="M32 14v36M14 32h36" stroke="#B4F0CB" stroke-width="5.5" stroke-linecap="round"></path>
+  </svg>
+</template>
+
+<script type="module" src="app.js?v=20261023e"></script>
+</body>
+</html>

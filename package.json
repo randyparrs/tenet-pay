@@ -1,0 +1,13 @@
+{
+  "name": "tenet-pay",
+  "private": true,
+  "type": "module",
+  "description": "Tenet Pay: the gateway Worker, its pages, TechShopping and their rehearsal.",
+  "dependencies": {
+    "genlayer-js": "1.2.0",
+    "viem": "2.55.4"
+  },
+  "devDependencies": {
+    "linkedom": "0.18.13"
+  }
+}

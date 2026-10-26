@@ -1,0 +1,56 @@
+name: Tests
+
+# Runs on every push and pull request. No keys and no transactions: the escrow on a local chain (anvil), the gateway
+# judges in Lacre's simulated GenVM SDK, and the pages in a DOM.
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  gateway:
+    name: Gateway judges, Worker and rehearsal
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      LACRE_DIR: ${{ github.workspace }}/../lacre
+      # The commit of Lacre whose simulated SDK and verifier the tests use (see NOTICE.md)
+      LACRE_COMMIT: d2cb1fc1b19b9b31af7ef1b561221f447ec21838
+      VENV_PY: python
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install
+        run: |
+          python -m pip install genlayer-py==0.16.3 web3==8.0.0 eth-account==0.14.0 requests==2.34.2 truststore==0.10.4
+          git clone --quiet https://github.com/eudomar500/lacre "$LACRE_DIR"
+          git -C "$LACRE_DIR" checkout --quiet "$LACRE_COMMIT"
+          npm ci
+      - name: Build Tenet's escrow (the rehearsal deploys the demo build on anvil)
+        working-directory: tenet/evm
+        run: forge build && FOUNDRY_PROFILE=demo forge build
+      - name: Both gateway judges rebuild from Tenet's templates byte for byte as deployed
+        run: python contracts/build_judge_gw.py --check
+      - name: Terms text, email reading and terms drafting, against the Python side
+        run: |
+          node worker/test/terms.test.mjs
+          node worker/test/mime.test.mjs
+          node worker/test/f1.test.mjs
+      - name: Gateway judges against the recorded committee answers
+        run: python tenet/tools/lacre_boot.py tests/judge_gw_regression.py
+      - name: Gateway rehearsal (Worker, escrow on anvil, judges simulated, the three pages and the example store)
+        run: node worker/test/rehearsal.mjs

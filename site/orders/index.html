@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenet Pay</title>
+<meta name="description" content="Tenet Pay: your orders, your claims and your refunds. Payments are held in escrow on Arc; a GenLayer judge decides claims from the store's signed emails and terms.">
+<meta name="theme-color" content="#0D1310">
+<meta name="tenet-gateway-api" content="https://tenet-gateway.randyparra.workers.dev">
+<meta name="tenet-circle" content="">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261023b">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20261023b">
+</head>
+<body>
+<!--
+  Visibility rules used by app.js (an element with several rules is shown only when all match):
+    data-visible-on="list detail"        page status: list, loading, detail, notfound, down
+    data-visible-wallet="connected"      wallet status: disconnected, connecting, connected, error
+    data-visible-flag="confirming"       UI flags, space separated, "!" negates
+    data-visible-stage="none store"      claim stage of the open order: none, opening, emails, store, judge, verdict, settle, withdraw, done
+    data-visible-type="late"             claim type chosen in the draft: none, late, not_as_described, not_delivered
+  Sign buttons use data-sign-state: idle, busy or done.
+-->
+<div class="app" id="app" data-status="list" data-wallet="connected">
+
+  <header class="site-header" id="site-header">
+    <div class="site-header__inner">
+      <a href="#/orders" class="brand" id="brand-home">
+        <span class="tenet-icon tenet-icon--26" data-icon="tenet"></span>
+        <span class="brand__word">TENET <span class="brand__accent">PAY</span></span>
+      </a>
+      <span class="header-divider"></span>
+      <span class="header-tagline">My orders and claims.</span>
+
+      <div class="header-right">
+        <span class="badge-testnet" id="badge-testnet"><span class="badge-testnet__dot"></span>Testnet</span>
+
+        <button type="button" class="wallet-connect-btn" id="wallet-connect" data-action="open-menu" data-menu-target="connect" data-visible-wallet="disconnected">Connect</button>
+        <span class="wallet-connecting" id="wallet-connecting" data-visible-wallet="connecting"><span class="spin spin--18"></span>Connecting</span>
+        <button type="button" class="wallet-chip" id="wallet-account" data-action="open-menu" data-menu-target="account" data-visible-wallet="connected">
+          <span class="avatar avatar--24"></span>
+          <span class="mono wallet-chip__addr" data-field="wallet.addressShort"></span>
+          <span class="wallet-chip__bal mono"><span><span data-field="wallet.balance"></span> USDC</span></span>
+        </button>
+        <button type="button" class="wallet-error-btn" id="wallet-wrong-network" data-action="open-menu" data-menu-target="network" data-visible-wallet="error"><span class="dot dot--red"></span>Wrong network</button>
+
+        <div class="menu menu--connect" id="menu-connect" data-menu="connect" hidden>
+          <div class="menu__heading">Connect a wallet on <span data-field="network.name"></span></div>
+          <div class="notice-red" id="wallet-message" data-visible-flag="walletMessage"><span data-field="ui.walletMessage"></span></div>
+          <button type="button" class="menu-option" id="connect-browser-wallet" data-action="choose-wallet" data-wallet-type="browser">
+            <span class="menu-option__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 9h18"></path></svg></span>
+            <span class="menu-option__text"><span class="menu-option__title">Browser wallet</span><span class="menu-option__sub">MetaMask, Rabby or another wallet extension, on Arc testnet.</span></span>
+          </button>
+          <button type="button" class="menu-option" id="connect-google" data-action="choose-wallet" data-wallet-type="google" data-visible-flag="circle">
+            <span class="menu-option__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg></span>
+            <span class="menu-option__text"><span class="menu-option__title">Continue with Google</span><span class="menu-option__sub">Circle wallet: a wallet on Arc testnet that Circle creates for your Google account. It pays its own gas in testnet USDC.</span></span>
+          </button>
+        </div>
+
+        <div class="menu menu--panel" id="menu-account" data-menu="account" hidden>
+          <div class="menu-stack"><span class="menu__label">Connected on <span data-field="network.name"></span></span><span class="mono menu__address" data-field="wallet.address"></span></div>
+          <div class="menu-row"><span>USDC balance</span><span class="mono ink"><span data-field="wallet.balance"></span> USDC</span></div>
+          <button type="button" class="btn-ghost btn-ghost--sm" id="wallet-switch-account" data-action="open-menu" data-menu-target="connect">Change account</button>
+          <button type="button" class="btn-ghost btn-ghost--sm" id="wallet-disconnect" data-action="disconnect">Disconnect</button>
+        </div>
+
+        <div class="menu menu--panel menu--danger" id="menu-network" data-menu="network" hidden>
+          <span class="menu__danger-title">Your wallet is on another network</span>
+          <span class="menu__text">Tenet Pay only works on <span data-field="network.name"></span> (chain <span data-field="network.chainId"></span>).</span>
+          <button type="button" class="btn-light btn-light--sm" id="menu-switch-network" data-action="switch-network"><span>Switch to <span data-field="network.name"></span></span></button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="menu-backdrop" id="menu-backdrop" data-action="close-menu" hidden></div>
+
+  <main class="main" id="main">
+
+    <!-- Screen: no wallet, connecting or wrong network -->
+    <section class="center-card" id="screen-wallet" data-screen="wallet" data-visible-wallet="disconnected connecting error">
+      <span class="center-card__icon" data-visible-wallet="disconnected connecting"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"></rect><path d="M3 10h18M16 15h2"></path><path d="M6 6l9-3 2 3"></path></svg></span>
+      <span class="center-card__icon center-card__icon--red" data-visible-wallet="error"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16v.5"></path></svg></span>
+      <h1 class="center-card__title" data-visible-wallet="disconnected">Connect your wallet to see your orders</h1>
+      <h1 class="center-card__title" data-visible-wallet="connecting">Connecting your wallet</h1>
+      <h1 class="center-card__title" data-visible-wallet="error">Your wallet is on another network</h1>
+      <p class="center-card__body" data-visible-wallet="disconnected">My orders shows the orders paid from the connected wallet, their claims and any refund waiting in the escrow.</p>
+      <p class="center-card__body" data-visible-wallet="connecting">Approve the connection in your wallet.</p>
+      <p class="center-card__body" data-visible-wallet="error">Tenet Pay only works on <span data-field="network.name"></span> (chain <span data-field="network.chainId"></span>). Switch networks to see your orders.</p>
+      <div class="center-card__actions">
+        <button type="button" class="btn-light" id="gate-connect" data-action="open-menu" data-menu-target="connect" data-visible-wallet="disconnected">Connect wallet</button>
+        <span class="wallet-connecting" id="gate-connecting" data-visible-wallet="connecting"><span class="spin spin--18"></span>Waiting for your wallet</span>
+        <button type="button" class="btn-light" id="gate-switch-network" data-action="switch-network" data-visible-wallet="error"><span>Switch to <span data-field="network.name"></span></span></button>
+      </div>
+    </section>
+
+    <!-- Screen: order not found or service down -->
+    <section class="center-card" id="screen-error" data-screen="error" data-visible-wallet="connected" data-visible-on="notfound down">
+      <span class="center-card__icon center-card__icon--red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16v.5"></path></svg></span>
+      <h1 class="center-card__title" data-visible-on="notfound">Order <span data-field="route.orderId"></span> was not found</h1>
+      <h1 class="center-card__title" data-visible-on="down">Tenet is not responding</h1>
+      <p class="center-card__body" data-visible-on="notfound">This order is not on Tenet, or it was not paid from the connected wallet. Check the account in your wallet.</p>
+      <p class="center-card__body" data-visible-on="down">The order could not be loaded because the Tenet service did not answer. Your funds stay in the escrow on Arc.</p>
+      <span class="error-detail mono" id="error-detail" data-field="error.detail"></span>
+      <div class="center-card__actions">
+        <button type="button" class="btn-light" id="error-retry" data-action="retry-load">Try again</button>
+        <a href="#/orders" class="btn-outline" id="error-all-orders">All orders</a>
+      </div>
+    </section>
+
+    <!-- List header -->
+    <div class="page-head" id="list-head" data-visible-wallet="connected" data-visible-on="list">
+      <div class="page-head__left">
+        <h1 class="page-head__title">My orders</h1>
+        <div class="page-head__meta">
+          <span>Paid from <span class="mono ink" data-field="wallet.addressShort"></span></span>
+          <span class="meta-dot"></span>
+          <span data-field="list.count"></span>
+        </div>
+      </div>
+      <a href="#" class="back-link" id="list-back-to-store" data-field-href="links.store"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>Back to store</a>
+    </div>
+
+    <!-- Detail header -->
+    <div class="page-head" id="detail-head" data-visible-wallet="connected" data-visible-on="loading detail">
+      <div class="page-head__left">
+        <div class="page-head__title-row">
+          <h1 class="page-head__title">Order <span data-field="route.orderId"></span></h1>
+          <span class="chip" id="detail-status" data-visible-on="detail"></span>
+        </div>
+        <div class="page-head__meta">
+          <span class="skeleton skeleton--line" data-visible-on="loading"></span>
+          <span data-visible-on="detail">Sold by <span class="ink" data-field="order.store.domain"></span></span>
+          <span class="meta-dot" data-visible-on="detail"></span>
+          <span data-visible-on="detail">Paid <span data-field="order.paidAt"></span></span>
+        </div>
+      </div>
+      <a href="#/orders" class="back-link" id="detail-all-orders"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>All orders</a>
+    </div>
+
+    <!-- Wallet balance in the escrow. Belongs to the wallet, not to one order -->
+    <section class="card card--pad balance-card" id="balance-card" data-visible-wallet="connected" data-visible-on="list detail" data-visible-flag="showBalance">
+      <div class="balance-card__top">
+        <span class="card-head__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="14" rx="3"></rect><path d="M3 10h18M16 15h2"></path></svg></span>
+        <div class="balance-card__text">
+          <span class="balance-card__label" data-visible-flag="!withdrawn">Waiting in the escrow for this wallet</span>
+          <span class="balance-card__label" data-visible-flag="withdrawn">Withdrawn to this wallet</span>
+          <span class="balance-card__amount mono"><span data-field="balance.shown"></span> USDC</span>
+        </div>
+        <div class="balance-card__action">
+          <button type="button" class="sign-btn sign-btn--md" id="balance-withdraw" data-action="withdraw" data-sign-key="withdraw" data-sign-state="idle">
+            <span class="sign-btn__idle"><span>Withdraw <span data-field="balance.shown"></span> USDC</span></span>
+            <span class="sign-btn__busy"><span class="spin spin--16"></span>Sign in your wallet</span>
+            <span class="sign-btn__done"><span class="sign-btn__check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Withdrawn</span>
+          </button>
+        </div>
+      </div>
+      <span class="label-caps mono">FROM THESE ORDERS</span>
+      <div class="balance-sources" id="balance-sources" data-list="balance.sources"></div>
+      <div class="notice-red" id="withdraw-rejected" data-visible-flag="withdrawRejected"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>You rejected the request in your wallet. Nothing was withdrawn.</div>
+      <div class="pending" id="pending-withdraw" data-pending="withdraw" hidden></div>
+      <div class="notice-red" id="withdraw-failed" data-visible-flag="failed"><span data-field="ui.failText"></span></div>
+      <span class="balance-card__note" data-visible-flag="!withdrawn !withdrawPending">Refunds from decided claims stay in the escrow until you withdraw them. One withdrawal takes all of it.</span>
+    </section>
+
+    <!-- List of orders -->
+    <section class="card order-list" id="order-list" data-visible-wallet="connected" data-visible-on="list" data-list="orders"></section>
+
+    <!-- Detail: loading -->
+    <div class="loading" id="detail-loading" data-visible-wallet="connected" data-visible-on="loading">
+      <div class="card card--row">
+        <span class="skeleton skeleton--thumb"></span>
+        <div class="skeleton-stack"><span class="skeleton skeleton--a"></span><span class="skeleton skeleton--b"></span><span class="skeleton skeleton--c"></span></div>
+        <span class="skeleton skeleton--total"></span>
+      </div>
+      <div class="two-col">
+        <div class="card card--pad stack-16"><span class="skeleton skeleton--title"></span><span class="skeleton skeleton--row"></span><span class="skeleton skeleton--row"></span><span class="skeleton skeleton--button"></span></div>
+        <div class="card card--pad stack-16"><span class="skeleton skeleton--title"></span><span class="skeleton skeleton--row"></span><span class="skeleton skeleton--row"></span></div>
+      </div>
+    </div>
+
+    <!-- Detail -->
+    <div class="page" id="order-detail" data-screen="detail" data-visible-wallet="connected" data-visible-on="detail">
+      <div class="card card--row item-card" id="order-item">
+        <div class="item-card__thumb" id="order-item-thumb"></div>
+        <div class="item-card__info">
+          <span class="item-card__name" data-field="order.item.name"></span>
+          <span class="item-card__desc" data-field="order.item.description"></span>
+          <span class="item-card__qty mono"><span>Qty <span data-field="order.item.quantity"></span> · <span data-field="order.item.price"></span> <span data-field="order.currency"></span></span></span>
+        </div>
+        <div class="item-card__total">
+          <span class="label-xs">Total</span>
+          <span class="item-card__amount mono"><span data-field="order.total"></span> <span class="item-card__cur" data-field="order.currency"></span></span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Claim -->
+        <section class="card card--pad claim-card" id="claim-card">
+          <div class="card-head">
+            <span class="card-head__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"></path><path d="M12 8v4.5M12 15.5v.5"></path></svg></span>
+            <div class="card-head__text">
+              <span class="card-head__title">Claim</span>
+              <span class="card-head__sub" data-visible-stage="none">Something went wrong with this order? Choose what happened. You can open one claim per order.</span>
+              <span class="card-head__sub" data-visible-stage="opening emails store judge verdict settle withdraw done">The steps of your claim. On testnet each wait takes minutes.</span>
+            </div>
+          </div>
+
+          <div class="notice-red" id="action-failed" data-visible-flag="failed"><span data-field="ui.failText"></span></div>
+
+          <!-- Claim builder -->
+          <div class="claim-section" id="claim-builder" data-visible-stage="none" data-visible-flag="!confirming">
+            <span class="section-label">What happened?</span>
+            <div class="type-cards" role="radiogroup" aria-label="Claim type">
+              <button type="button" class="type-card" id="claim-type-late" role="radio" aria-checked="false" aria-disabled="false" data-action="choose-type" data-claim-type="late">
+                <span class="type-card__radio"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <span class="type-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></span>
+                <span class="type-card__text">
+                  <span class="type-card__title">It arrived late</span>
+                  <span class="type-card__cond" data-field="types.late.condition"></span>
+                  <span class="type-card__off">Needs a delivery email verified in Lacre. This order has none yet.</span>
+                </span>
+                <span class="type-card__refund"><span class="type-card__pct mono" data-field="types.late.refund"></span><span class="type-card__amt mono"><span data-field="types.late.amount"></span> USDC</span></span>
+              </button>
+              <button type="button" class="type-card" id="claim-type-not-as-described" role="radio" aria-checked="false" aria-disabled="false" data-action="choose-type" data-claim-type="not_as_described">
+                <span class="type-card__radio"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <span class="type-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5L12 3.5l8.5 4v9L12 20.5l-8.5-4v-9z"></path><path d="M3.5 7.5L12 11.5l8.5-4M12 11.5v9"></path></svg></span>
+                <span class="type-card__text">
+                  <span class="type-card__title">It is not what the description says</span>
+                  <span class="type-card__cond" data-field="types.not_as_described.condition"></span>
+                </span>
+                <span class="type-card__refund"><span class="type-card__pct mono" data-field="types.not_as_described.refund"></span><span class="type-card__amt mono"><span data-field="types.not_as_described.amount"></span> USDC</span></span>
+              </button>
+              <button type="button" class="type-card" id="claim-type-not-delivered" role="radio" aria-checked="false" aria-disabled="false" data-action="choose-type" data-claim-type="not_delivered">
+                <span class="type-card__radio"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <span class="type-card__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5s6.5-5.8 6.5-10.5a6.5 6.5 0 10-13 0c0 4.7 6.5 10.5 6.5 10.5z"></path><circle cx="12" cy="10" r="2.3"></circle></svg></span>
+                <span class="type-card__text">
+                  <span class="type-card__title">It never arrived</span>
+                  <span class="type-card__cond" data-field="types.not_delivered.condition"></span>
+                </span>
+                <span class="type-card__refund"><span class="type-card__pct mono" data-field="types.not_delivered.refund"></span><span class="type-card__amt mono"><span data-field="types.not_delivered.amount"></span> USDC</span></span>
+              </button>
+            </div>
+            <div class="notice-amber" id="late-disabled-note" data-visible-flag="lateDisabled">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E9B872" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>
+              <span>"It arrived late" needs a delivery email from the store verified in Lacre. If the item did not reach you, <button type="button" class="link-btn" id="late-suggest-never" data-action="choose-type" data-claim-type="not_delivered">choose It never arrived</button>.</span>
+            </div>
+
+            <div class="notice-plain" id="fields-late" data-visible-type="late">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#93A29A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg>
+              <span>No details needed. The judge compares the estimated date in the order email with the date in the delivery email. After you sign, you register those store emails in the claim.</span>
+            </div>
+
+            <div class="fields" id="fields-not-as-described" data-visible-type="not_as_described" data-answer-type="not_as_described">
+              <label class="field"><span class="field__label">What did the description promise?</span><textarea class="textarea" id="answer-promised" maxlength="200" data-answer="promised" placeholder="For example: a 65 W USB-C charger"></textarea></label>
+              <label class="field"><span class="field__label">What arrived?</span><textarea class="textarea" id="answer-arrived" maxlength="200" data-answer="arrived" placeholder="For example: a 45 W charger"></textarea></label>
+              <div class="field">
+                <span class="field__label">Proof <span class="field__opt">(optional)</span></span>
+                <div class="segmented" role="group" aria-label="Proof type">
+                  <button type="button" class="seg-btn" id="proof-type-none" data-action="proof-type" data-proof-type="" aria-pressed="true">No proof</button>
+                  <button type="button" class="seg-btn" id="proof-type-label" data-action="proof-type" data-proof-type="label" aria-pressed="false">Label</button>
+                  <button type="button" class="seg-btn" id="proof-type-model" data-action="proof-type" data-proof-type="model" aria-pressed="false">Model number</button>
+                  <button type="button" class="seg-btn" id="proof-type-serial" data-action="proof-type" data-proof-type="serial" aria-pressed="false">Serial number</button>
+                </div>
+              </div>
+              <label class="field" data-visible-flag="hasProofType"><span class="field__label">What does the proof show?</span><input class="input" type="text" id="answer-proof-shows" maxlength="200" data-answer="proofShows" placeholder="For example: Output 45 W, model PD45-C"><span class="field__hint">Type the text exactly as it appears on the item.</span></label>
+              <label class="field"><span class="field__label">When was it delivered?</span><input class="input" type="date" id="answer-delivered-on" data-answer="deliveredOn"></label>
+              <label class="field"><span class="field__label">What happened?</span><textarea class="textarea" id="answer-what-happened-nad" maxlength="500" data-answer="whatHappened" placeholder="Tell the judge what you noticed"></textarea></label>
+            </div>
+
+            <div class="fields" id="fields-not-delivered" data-visible-type="not_delivered" data-answer-type="not_delivered">
+              <label class="field"><span class="field__label">What happened?</span><textarea class="textarea" id="answer-what-happened-nd" maxlength="500" data-answer="whatHappened" placeholder="For example: the tracking stopped and nothing arrived"></textarea></label>
+            </div>
+
+            <div class="notice-red" id="claim-missing" data-visible-flag="missing"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>Fill in the fields marked in red.</div>
+            <button type="button" class="btn-pay" id="claim-review" data-action="review-claim" data-visible-type="late not_as_described not_delivered"><span>Review the claim</span><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+            <div class="btn-waiting" id="claim-review-waiting" data-visible-type="none" aria-disabled="true">Choose what happened</div>
+          </div>
+
+          <!-- Confirmation before signing -->
+          <div class="confirm" id="claim-confirm" data-visible-stage="none" data-visible-flag="confirming">
+            <span class="label-caps mono">CHECK BEFORE YOU SIGN</span>
+            <h2 class="confirm__type">You are claiming: <span data-field="draft.typeName"></span></h2>
+            <dl class="summary" id="confirm-summary"></dl>
+            <div class="notice-amber">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#E9B872" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg>
+              <span>You can open one claim per order. After you sign, the claim type and these answers cannot be changed.</span>
+            </div>
+            <div class="notice-red" id="claim-rejected" data-visible-flag="claimRejected"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>You rejected the request in your wallet. Nothing was signed.</div>
+            <div class="confirm__actions">
+              <button type="button" class="sign-btn" id="claim-sign" data-action="sign-claim" data-sign-key="claim" data-sign-state="idle">
+                <span class="sign-btn__idle">Sign the claim</span>
+                <span class="sign-btn__busy"><span class="spin spin--16"></span>Sign in your wallet</span>
+                <span class="sign-btn__done"><span class="sign-btn__check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Claim signed</span>
+              </button>
+              <button type="button" class="btn-ghost btn-ghost--lg" id="claim-edit" data-action="edit-claim" data-visible-flag="!busyClaim">Back to edit</button>
+            </div>
+          </div>
+
+          <!-- Claim in progress -->
+          <div class="claim-section" id="claim-progress" data-visible-stage="opening emails store judge verdict settle withdraw done">
+            <div class="claim-locked" id="claim-locked">
+              <span class="claim-locked__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg></span>
+              <div class="claim-locked__text">
+                <span class="claim-locked__type">You claimed: <span data-field="claim.typeName"></span></span>
+                <span class="claim-locked__sub">Signed <span data-field="claim.signedAt"></span> · cannot be changed</span>
+              </div>
+            </div>
+
+            <div class="result" id="claim-result" data-outcome="refund" data-visible-flag="hasResult">
+              <div class="result__head">
+                <span class="result__icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+                <div class="card-head__text">
+                  <span class="result__title" data-visible-flag="outcomeRefund">Refund of <span class="mono" data-field="claim.result.refunded"></span> USDC to you</span>
+                  <span class="result__title" data-visible-flag="outcomeReleased">Payment released to the store</span>
+                  <span class="result__sub">Verdict: <span data-field="claim.result.summary"></span></span>
+                </div>
+              </div>
+              <div class="result__amounts">
+                <span class="result__label">Back to you</span><span class="mono result__strong"><span data-field="claim.result.refunded"></span> USDC</span>
+                <span class="result__label">Released to <span data-field="order.store.domain"></span></span><span class="mono"><span data-field="claim.result.released"></span> USDC</span>
+              </div>
+              <p class="result__verdict" data-field="claim.result.verdict"></p>
+            </div>
+
+            <div class="steps" id="claim-steps" data-list="claim.steps"></div>
+          </div>
+        </section>
+
+        <div class="col-stack">
+          <!-- Store emails -->
+          <section class="card card--pad stack-16" id="emails-card">
+            <div class="card-head">
+              <span class="card-head__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg></span>
+              <div class="card-head__text"><span class="card-head__title">Store emails</span><span class="card-head__sub">Sent by <span data-field="order.store.domain"></span> to <span class="mono nowrap" data-field="order.mailTo"></span>. Lacre checks that each one is real.</span></div>
+            </div>
+            <div class="email-list" id="email-list" data-list="order.emails"></div>
+          </section>
+
+          <!-- Timeline -->
+          <section class="card card--pad stack-16" id="timeline-card">
+            <div class="card-head">
+              <span class="card-head__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></span>
+              <div class="card-head__text"><span class="card-head__title">Timeline</span><span class="card-head__sub">In escrow on Arc. Released to the store: <span data-field="order.releaseAt"></span>.</span></div>
+            </div>
+            <div class="timeline" id="timeline" data-list="order.events"></div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- Step actions. app.js moves each block into the active step -->
+    <div id="step-actions" hidden>
+      <div class="stack-12" id="act-open" data-step-action="open">
+        <button type="button" class="sign-btn sign-btn--md" id="claim-signed" data-sign-state="done" disabled>
+          <span class="sign-btn__done"><span class="sign-btn__check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Claim signed</span>
+        </button>
+        <div class="pending" id="pending-claim" data-pending="claim" hidden></div>
+      </div>
+
+      <div class="stack-12" id="act-emails" data-step-action="emails">
+        <div class="reg-list" id="reg-list" data-list="emails.toRegister"></div>
+        <div class="notice-red" id="emails-rejected" data-visible-flag="emailsRejected"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>You rejected the request in your wallet. The emails already signed stay registered.</div>
+        <button type="button" class="sign-btn sign-btn--md" id="emails-register" data-action="register-emails" data-sign-key="emails" data-sign-state="idle">
+          <span class="sign-btn__idle" data-field="emails.idleLabel"></span>
+          <span class="sign-btn__busy"><span class="spin spin--16"></span>Sign in your wallet<span class="sign-btn__step" data-field="emails.stepLabel"></span></span>
+          <span class="sign-btn__done"><span class="sign-btn__check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span><span data-field="emails.doneLabel"></span></span>
+        </button>
+        <div class="pending" id="pending-emails" data-pending="emails" hidden></div>
+      </div>
+
+      <div class="stack-12" id="act-store" data-step-action="store">
+        <div class="wait-row"><span class="live-dot"></span><span>Waiting for <span data-field="order.store.domain"></span> to answer</span><span class="countdown mono" data-field="store.countdown"></span></div>
+      </div>
+
+      <div class="stack-12" id="act-judge" data-step-action="judge">
+        <div class="proof-alert" id="proof-alert" data-visible-flag="proofRequested !proofExpired">
+          <div class="proof-alert__head">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#E9B872" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>
+            <span class="proof-alert__title" data-visible-flag="!closing">The judge asks you for proof</span><span class="proof-alert__title" data-visible-flag="closing">The store disputed your claim with a fact</span>
+            <span class="proof-alert__count mono" data-visible-flag="!proofSent"><span class="live-dot"></span><span data-field="proof.countdown"></span> left</span>
+          </div>
+          <p class="proof-alert__q" data-field="proof.question"></p>
+          <div class="field" data-visible-flag="!proofSent"><span class="field__label">Proof</span>
+            <div class="segmented" role="group" aria-label="Proof type">
+              <button type="button" class="seg-btn" id="proof-kind-label" data-action="proof-kind" data-proof-kind="label" aria-pressed="false">Label</button>
+              <button type="button" class="seg-btn" id="proof-kind-model" data-action="proof-kind" data-proof-kind="model_number" aria-pressed="false">Model number</button>
+              <button type="button" class="seg-btn" id="proof-kind-serial" data-action="proof-kind" data-proof-kind="serial_number" aria-pressed="false">Serial number</button>
+            </div>
+          </div>
+          <label class="field" data-visible-flag="!proofSent"><span class="field__label">What does it show?</span><input class="input" type="text" id="proof-text" data-proof-input="text" maxlength="200" placeholder="For example: TS-C20 20W on the label"></label>
+          <div class="notice-red" id="proof-rejected" data-visible-flag="proofRejected"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>You rejected the request in your wallet. The proof was not sent.</div>
+          <button type="button" class="sign-btn sign-btn--md" id="proof-send" data-action="send-proof" data-sign-key="proof" data-sign-state="idle">
+            <span class="sign-btn__idle">Send the proof</span>
+            <span class="sign-btn__busy"><span class="spin spin--16"></span>Sign in your wallet</span>
+            <span class="sign-btn__done"><span class="sign-btn__check"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Proof sent</span>
+          </button>
+          <div class="pending" id="pending-proof" data-pending="proof" hidden></div>
+        </div>
+        <div class="proof-alert proof-alert--late" id="proof-expired" data-visible-flag="proofExpired">
+          <div class="proof-alert__head"><span class="proof-alert__title">The time to send proof is over</span><span class="proof-alert__count mono">0:00</span></div>
+          <p class="proof-alert__q">The judge decides with your claim, the store answer and the store emails.</p>
+        </div>
+        <div class="wait-row" id="judge-deciding" data-visible-flag="judgeDeciding"><span class="spin spin--16"></span><span>The judge is reading the claim, the refund terms and the store emails.</span></div>
+      </div>
+
+      <div class="stack-12" id="act-verdict" data-step-action="verdict">
+        <div class="wait-row"><span class="spin spin--16"></span><span>GenLayer validators are checking the judge's decision.</span></div>
+      </div>
+
+      <div class="stack-12" id="act-settle" data-step-action="settle">
+        <div class="wait-row"><span class="spin spin--16"></span><span>Arc is moving the funds out of the escrow.</span></div>
+      </div>
+
+      <div class="stack-12" id="act-withdraw" data-step-action="withdraw">
+        <div class="wait-row"><span><span class="mono ink"><span data-field="claim.result.refunded"></span> USDC</span> from this order is waiting in the escrow with the rest of your balance.</span></div>
+        <button type="button" class="btn-ghost btn-ghost--lg" id="withdraw-goto" data-action="goto-balance">Go to Withdraw</button>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer" id="site-footer">
+    <div class="site-footer__inner">
+      <div class="site-footer__left">
+        <span class="site-footer__text">Protected by Tenet: escrow on Arc Network, disputes judged on GenLayer, store emails verified with Lacre</span>
+        <span class="site-footer__links"><a href="https://tenet.rpmdev.app" id="footer-tenet">tenet.rpmdev.app</a><a href="https://techshopping.site" id="footer-techshopping">techshopping.site</a></span>
+      </div>
+      <div class="site-footer__chips">
+        <span class="stack-chip"><span class="stack-chip__k mono">ESCROW</span>Arc Network</span>
+        <span class="stack-chip"><span class="stack-chip__k mono">JUDGE</span>GenLayer</span>
+        <span class="stack-chip"><span class="stack-chip__k mono">EMAILS</span>Lacre</span>
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<!-- ===== Templates used by app.js ===== -->
+<template id="tpl-order-row">
+  <a class="order-row" href="#" data-order-id="">
+    <span class="order-row__thumb" data-f-icon=""></span>
+    <span class="order-row__info"><span class="order-row__name" data-f="name"></span><span class="order-row__meta"><span class="mono" data-f="id"></span> · <span data-f="store"></span> · <span data-f="paidAt"></span></span></span>
+    <span class="order-row__right">
+      <span class="chip" data-f="status"></span>
+      <span class="order-row__amount mono" data-f="amount"></span>
+      <svg class="order-row__chev" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg>
+    </span>
+  </a>
+</template>
+
+<template id="tpl-order-empty">
+  <div class="empty-note">No orders were paid from this wallet yet.</div>
+</template>
+
+<template id="tpl-balance-source">
+  <div class="balance-source" data-order-id="">
+    <a href="#" class="balance-source__order mono" data-f="orderId"></a>
+    <span data-f="why"></span>
+    <span class="balance-source__amount mono" data-f="amount"></span>
+  </div>
+</template>
+
+<template id="tpl-step">
+  <div class="step" data-step="" data-step-state="todo">
+    <div class="step__rail">
+      <span class="step__dot"><span data-f="n"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+      <span class="step__line"></span>
+    </div>
+    <div class="step__main">
+      <div class="step__head"><span class="step__title" data-f="title"></span><span class="step__time mono" data-f="time"></span></div>
+      <span class="step__sub" data-f="sub"></span>
+      <a href="#" target="_blank" rel="noopener" class="tx-link mono step__tx" data-f-tx=""><span>tx <span data-f="txShort"></span></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>
+      <div class="step__body"></div>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-reg-item">
+  <div class="reg-item" data-reg-state="todo">
+    <span class="reg-item__dot"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+    <span data-f="subject"></span>
+    <span class="reg-item__n mono" data-f="reg"></span>
+  </div>
+</template>
+
+<template id="tpl-email">
+  <div class="email" data-email-kind="">
+    <span class="email__icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"></rect><path d="M3.5 7l8.5 6 8.5-6"></path></svg></span>
+    <div class="email__text"><span class="email__subject" data-f="subject"></span><span class="email__detail" data-f="detail"></span><span class="email__sent mono" data-f="sentAt"></span></div>
+    <div class="email__status">
+      <span class="lacre lacre--verified" data-lacre="verified"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Verified in Lacre</span>
+      <span class="lacre lacre--attesting" data-lacre="attesting"><span class="live-dot"></span>Attesting in Lacre</span>
+      <span class="email__reg mono" data-f="reg"></span>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-event">
+  <div class="tl" data-tone="neutral">
+    <div class="tl__rail"><span class="tl__dot"></span><span class="tl__line"></span></div>
+    <div class="tl__main">
+      <span class="tl__what" data-f="what"></span>
+      <span class="tl__meta"><span class="mono" data-f="time"></span><a href="#" target="_blank" rel="noopener" class="tx-link mono" data-f-tx=""><span>tx <span data-f="txShort"></span></span><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a></span>
+    </div>
+  </div>
+</template>
+
+<template id="tpl-summary-row">
+  <div class="summary__row" style="display: contents;"><dt data-f="label"></dt><dd data-f="value"></dd></div>
+</template>
+
+<template id="tpl-pending">
+  <div class="pending__row">
+    <span class="live-dot" data-pending-wait=""></span>
+    <svg data-pending-read="" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>
+    <span data-f="label"></span>
+    <span class="pending__time mono" data-f="time"></span>
+  </div>
+  <a href="#" target="_blank" rel="noopener" class="tx-link mono" data-f-tx=""><span>tx <span data-f="txShort"></span></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>
+</template>
+
+
+<!-- Item icons, by item.icon -->
+<template id="icon-item-package"><svg width="54" height="54" viewBox="0 0 64 64" fill="none" stroke="#B4F0CB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M32 9L53 20v24L32 55 11 44V20L32 9z"></path><path d="M11 20l21 11 21-11M32 31v24"></path><path d="M21.5 14.5l21 11" stroke-opacity="0.35"></path></svg></template>
+<template id="icon-item-charger"><svg width="54" height="54" viewBox="0 0 64 64" fill="none" stroke="#B4F0CB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M27 7v8M37 7v8"></path><rect x="18" y="15" width="28" height="30" rx="7"></rect><path d="M23 22h18" stroke-opacity="0.35"></path><rect x="28.5" y="35" width="7" height="3" rx="1.5"></rect><path d="M32 45v4c0 4 3 6 7 6h7c3 0 5 1.5 5 4"></path></svg></template>
+<template id="icon-item-buds"><svg width="54" height="54" viewBox="0 0 64 64" fill="none" stroke="#B4F0CB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="22" cy="24" r="9"></circle><circle cx="22" cy="24" r="3.5" stroke-opacity="0.35"></circle><path d="M27 31v17a3 3 0 01-6 0V33"></path><circle cx="42" cy="24" r="9"></circle><circle cx="42" cy="24" r="3.5" stroke-opacity="0.35"></circle><path d="M37 31v17a3 3 0 006 0V33"></path></svg></template>
+<template id="icon-item-case"><svg width="54" height="54" viewBox="0 0 64 64" fill="none" stroke="#B4F0CB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="19" y="7" width="26" height="50" rx="7"></rect><rect x="24" y="12" width="10" height="14" rx="3.5" stroke-opacity="0.35"></rect><circle cx="29" cy="16.5" r="1.8"></circle><circle cx="29" cy="21.5" r="1.8"></circle><path d="M29 50h6" stroke-opacity="0.35"></path></svg></template>
+
+<!-- Inline SVG: Tenet icon. Ids are made unique per copy by app.js -->
+<template id="icon-tenet">
+  <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+    <defs><linearGradient id="tn-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1D4A32"></stop><stop offset="1" stop-color="#0E1411"></stop></linearGradient></defs>
+    <rect width="64" height="64" rx="14" fill="url(#tn-grad)"></rect>
+    <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#5CC48A" stroke-opacity="0.45" stroke-width="2"></rect>
+    <path d="M32 14v36M14 32h36" stroke="#B4F0CB" stroke-width="5.5" stroke-linecap="round"></path>
+  </svg>
+</template>
+
+<script src="../circle.js?v=20261023b"></script>
+<script type="module" src="orders.js?v=20261023c"></script>
+</body>
+</html>

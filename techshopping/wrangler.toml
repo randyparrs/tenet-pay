@@ -1,0 +1,27 @@
+# TechShopping (techshopping.site), the example store of Tenet's payment gateway. Secrets, never in this file:
+#   wrangler secret put TENET_API_KEY          (shown once by Tenet Pay when the store was registered)
+#   wrangler secret put TENET_WEBHOOK_SECRET   (shown once with it)
+#   wrangler secret put RESEND_API_KEY         (Resend, sending as orders@techshopping.site)
+name = "techshopping"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+[vars]
+TENET_API = "https://tenet-gateway.randyparra.workers.dev"
+SITE_URL = "https://techshopping.site"
+MAIL_FROM = "TechShopping Orders <orders@techshopping.site>"
+
+[assets]
+directory = "site"
+binding = "ASSETS"
+
+[triggers]
+crons = ["* * * * *"]
+
+[[durable_objects.bindings]]
+name = "SHOP"
+class_name = "ShopState"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ShopState"]
