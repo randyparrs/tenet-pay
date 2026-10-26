@@ -1,4 +1,4 @@
-// The new checkout (gateway/site: index.html from the design, checkout.js, tenet.js, terms.js) in a real DOM (linkedom), for the gateway rehearsal. The page's
+// The checkout (site/pay/index.html, checkout.js, tenet.js, terms.js) in a real DOM (linkedom), for the gateway rehearsal. The page's
 // code runs as written; its API calls go to the same routes as the gateway Worker (src/routes.js), served by the
 // rehearsal's core; its reads of Arc go to anvil; its wallet is a browser wallet on anvil.
 import { readFileSync } from "node:fs";
@@ -85,7 +85,7 @@ export async function makeCheckout({ getCore, cfg, pub, wallet, P }) {
 
   /** A fresh page load: the HTML of the design, the bundled modules, the given hash. */
   async function load(hash = "") {
-    const dom = parseHTML(readFileSync(P("site/index.html"), "utf8"));
+    const dom = parseHTML(readFileSync(P("site/pay/index.html"), "utf8"));
     document = dom.document;
     for (const k of Object.keys(winListeners)) delete winListeners[k];
     const location = { hash, replaced: null, replace(u) { this.replaced = u; } };

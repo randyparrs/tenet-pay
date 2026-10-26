@@ -11,7 +11,7 @@
   The page that lived here (My orders, For stores, Store panel) moved on 2026-10-23:
   buyers to paytenet.site/orders/, stores to merchants.paytenet.site. Its old links keep working:
     #orders, #orders/<n>   -> /orders/#/orders[/<n>]
-    #pay/<n>               -> /#pay/<n> (the checkout)
+    #pay/<n>               -> /pay/#pay/<n> (the checkout)
     #stores                -> merchants.paytenet.site/#/register
     #panel                 -> merchants.paytenet.site/#/orders
     #how                   -> /how/ (How it works, for buyers)
@@ -23,7 +23,7 @@
   var h = (window.location.hash || '').replace(/^#\/?/, '');
   var m = /^orders(?:\/([A-Za-z0-9-]{1,40}))?\/?$/.exec(h), p = /^pay\/([A-Za-z0-9-]{1,40})$/.exec(h);
   var to = m ? '/orders/#/orders' + (m[1] ? '/' + m[1] : '')
-    : p ? '/#pay/' + p[1]
+    : p ? '/pay/#pay/' + p[1]
     : /^stores\b/.test(h) ? MERCHANTS + '#/register'
     : /^panel\b/.test(h) ? MERCHANTS + '#/orders'
     : /^how\b/.test(h) ? '/how/'

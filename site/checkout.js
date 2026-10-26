@@ -1,5 +1,5 @@
 /*
- * Tenet Pay checkout (paytenet.site): the checkout's interface wired to the gateway
+ * Tenet Pay checkout (paytenet.site/pay/): the checkout's interface wired to the gateway
  * Worker, Arc and the visitor's wallet through tenet.js. The page renders the store's refund terms from their
  * structure (terms.js), hashes that text and compares it with the order's and the escrow's terms hash before it lets
  * anyone pay.
@@ -17,8 +17,8 @@ import { get, wallet, call, word, uint, SEL, sendTx, waitReceipt, escrowTermsHas
   cancelled, txUrl, money, short, shortAddr, when, RPC_TRIED, CHAIN_ID, ARC } from "./tenet.js";
 
 const CONFIG = { notifyEvery: 5000, copyReset: 1600, rpcRetry: 900 };
-// My orders is orders/ and How it works is how/; the stores' pages are on merchants.paytenet.site.
-const LINKS = { demoStore: "https://techshopping.site", demoStoreLabel: "techshopping.site", how: "how/", myOrders: "orders/#/orders/{orderId}" };
+// My orders is ../orders/ and How it works is ../how/; the home page is ../ and sends #pay/ links here; the stores' pages are on merchants.paytenet.site.
+const LINKS = { demoStore: "https://techshopping.site", demoStoreLabel: "techshopping.site", how: "../how/", myOrders: "../orders/#/orders/{orderId}" };
 
 /* ---------- Data and chain layer ---------- */
 const Api = {
@@ -298,7 +298,7 @@ const LEGACY = /^#\/?(orders|stores|panel|how)(\/|$)/;
 function onRoute() {
   const h = window.location.hash || "";
   if (LEGACY.test(h)) {
-    window.location.replace(/^#\/?orders/.test(h) ? "orders/#/" + h.replace(/^#\/?/, "") : /^#\/?how/.test(h) ? "how/" : "app/" + h.replace(/^#\//, "#"));
+    window.location.replace(/^#\/?orders/.test(h) ? "../orders/#/" + h.replace(/^#\/?/, "") : /^#\/?how/.test(h) ? "../how/" : "../app/" + h.replace(/^#\//, "#"));
     return;
   }
   loadOrder(parseRoute().orderId);

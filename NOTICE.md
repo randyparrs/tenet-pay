@@ -16,7 +16,7 @@ Tenet Pay includes or builds on the following work.
 - License: MIT, Copyright (c) 2026 Insidr Labs
 - What Tenet Pay uses: the deployed Lacre contracts on GenLayer Bradbury (Router, Verifier and KeyCache) for DKIM email
   attestations, and, in the tests, Lacre's simulated GenVM SDK and tools at commit
-  d2cb1fc1b19b9b31af7ef1b561221f447ec21838 (a separate clone, `LACRE_DIR`; no Lacre file is copied here).
+  d2cb1fc1b19b9b31af7ef1b561221f447ec21838 (a separate clone, `LACRE_DIR`; no Lacre code is copied here; its mark is listed under Logos).
 
 ## Circle Web SDK
 
@@ -29,3 +29,12 @@ Tenet Pay includes or builds on the following work.
 
 - viem 2.55.4 and genlayer-js 1.2.0 (MIT), bundled into the gateway Worker.
 - linkedom 0.18.13 (ISC), used only by the tests.
+
+## Logos
+
+The home page (`site/index.html`) shows the marks of the three projects Tenet Pay is built on, unchanged, in
+`site/logos/`. They belong to their owners and are used only to name those projects.
+
+- `arc.svg`: Arc Network icon (white), from Arc's logo kit.
+- `genlayer.svg`: GenLayer mark (white), from https://www.genlayer.com/brand.
+- `lacre.svg`: Lacre's icon, from https://lacre.in-sidr.xyz (Insidr Labs).

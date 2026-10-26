@@ -11,7 +11,8 @@ templates, now open to any store that registers. Tenet is included as a git subm
 
 | What | Where |
 |---|---|
-| Checkout | https://paytenet.site (a store sends the buyer to `#pay/<order>`) |
+| Home (links to everything below) | https://paytenet.site |
+| Checkout | https://paytenet.site/pay/ (a store sends the buyer to `paytenet.site/#pay/<order>`, which opens it) |
 | My orders (claims, refunds, withdrawals) | https://paytenet.site/orders/ |
 | How it works | https://paytenet.site/how/ |
 | For stores (registration, orders, balance, terms) | https://merchants.paytenet.site |
@@ -39,13 +40,13 @@ contracts on Bradbury. TechShopping's registered terms hash is
 | Path | What it is |
 |---|---|
 | `worker/` | The gateway Worker: store registration (DNS TXT, terms draft, signed confirmation, test email, DKIM key, judges, escrow), orders and checkout data, store emails to Lacre, claims to the judges, verdicts to the escrow, webhooks. One Durable Object holds the state. |
-| `site/` | paytenet.site: the checkout, My orders, How it works, and `app/`, which only redirects the links of an earlier page. |
+| `site/` | paytenet.site: the home page, the checkout (`pay/`), My orders, How it works, and `app/`, which only redirects the links of an earlier page. |
 | `merchants-site/` | merchants.paytenet.site: the store panel. |
 | `techshopping/` | The example store: its page and its own Worker (orders, the order emails it sends to Tenet, the webhook it receives). |
 | `contracts/` | The two gateway judges as deployed, and the script that builds them from Tenet's templates. |
 | `tests/`, `worker/test/` | The local rehearsal and the tests (below). |
 | `cases/`, `data/` | The policies and the recorded readings of the terms drafting test (F1). |
-| `build_site.py` | Copies the shared files into the pages (`terms.js`, `tenet.js`, the Circle SDK), so they cannot drift. |
+| `build_site.py` | Copies the shared files into the pages (`terms.js`, `tenet.js`, the Circle SDK), so they cannot drift, and writes the home page's three numbers from Tenet's site data (`tenet/site/data/tenet.json`). |
 | `setup.py` | The testnet setup of the gateway (key, escrow, judges), one command at a time. |
 
 What is in this repository is what runs on the sites and Workers above: the page files are served byte for byte as they

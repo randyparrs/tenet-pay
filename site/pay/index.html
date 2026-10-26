@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenet Pay</title>
+<meta name="description" content="Tenet Pay: a checkout with buyer protection for online stores. The payment is held in escrow on Arc; if something goes wrong, a GenLayer judge decides from the store's signed emails and terms.">
+<meta name="theme-color" content="#0D1310">
+<meta name="tenet-gateway-api" content="https://tenet-gateway.randyparra.workers.dev">
+<meta name="tenet-circle" content="">
+<link rel="icon" type="image/svg+xml" href="../favicon.svg?v=20261023a">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../styles.css?v=20261023a">
+</head>
+<body>
+<!--
+  Visibility rules used by app.js:
+    data-visible-on="ready paid"         shown when the checkout status is one of the listed values
+    data-visible-wallet="connected"      shown when the wallet status is one of the listed values
+    data-visible-flag="rejected"         shown when that UI flag is true
+  An element with several rules is shown only when all of them match.
+-->
+<div class="app" id="app" data-status="loading" data-wallet="connected">
+
+  <header class="site-header" id="site-header">
+    <div class="site-header__inner">
+      <a href="../" class="brand" id="brand-home">
+        <span class="tenet-icon tenet-icon--26" data-icon="tenet"></span>
+        <span class="brand__word">TENET <span class="brand__accent">PAY</span></span>
+      </a>
+      <span class="header-divider"></span>
+      <span class="header-tagline">Checkout with buyer protection.</span>
+
+      <div class="header-right">
+        <span class="badge-testnet" id="badge-testnet"><span class="badge-testnet__dot"></span>Testnet</span>
+
+        <button type="button" class="wallet-connect-btn" id="wallet-connect" data-action="open-menu" data-menu-target="connect" data-visible-wallet="disconnected">Connect</button>
+        <span class="wallet-connecting" id="wallet-connecting" data-visible-wallet="connecting"><span class="spin spin--18"></span>Connecting</span>
+        <button type="button" class="wallet-chip" id="wallet-account" data-action="open-menu" data-menu-target="account" data-visible-wallet="connected">
+          <span class="avatar avatar--24"></span>
+          <span class="mono wallet-chip__addr" data-field="wallet.addressShort"></span>
+          <span class="wallet-chip__bal mono"><span><span data-field="wallet.balanceShown"></span> USDC</span></span>
+        </button>
+        <button type="button" class="wallet-error-btn" id="wallet-wrong-network" data-action="open-menu" data-menu-target="network" data-visible-wallet="error"><span class="dot dot--red"></span>Wrong network</button>
+
+        <div class="menu menu--connect" id="menu-connect" data-menu="connect" hidden>
+          <div class="menu__heading">Connect a wallet on <span data-field="network.name"></span></div>
+          <div class="notice-red" id="wallet-message" data-visible-flag="walletMessage"><span data-field="ui.walletMessage"></span></div>
+          <button type="button" class="menu-option" id="connect-browser-wallet" data-action="choose-wallet" data-wallet-type="browser">
+            <span class="menu-option__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M3 9h18"></path></svg></span>
+            <span class="menu-option__text"><span class="menu-option__title">Browser wallet</span><span class="menu-option__sub">MetaMask, Rabby or another wallet extension, on Arc testnet.</span></span>
+          </button>
+          <button type="button" class="menu-option" id="connect-google" data-action="choose-wallet" data-wallet-type="google" data-visible-flag="circle">
+            <span class="menu-option__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path></svg></span>
+            <span class="menu-option__text"><span class="menu-option__title">Continue with Google</span><span class="menu-option__sub">Circle wallet: a wallet on Arc testnet that Circle creates for your Google account. It pays its own gas in testnet USDC.</span></span>
+          </button>
+        </div>
+
+        <div class="menu menu--panel" id="menu-account" data-menu="account" hidden>
+          <div class="menu-stack"><span class="menu__label">Connected on <span data-field="network.name"></span></span><span class="mono menu__address" data-field="wallet.address"></span></div>
+          <div class="menu-row"><span>USDC balance</span><span class="mono ink"><span data-field="wallet.balanceShown"></span> USDC</span></div>
+          <button type="button" class="btn-ghost btn-ghost--sm" id="wallet-disconnect" data-action="disconnect">Disconnect</button>
+        </div>
+
+        <div class="menu menu--panel menu--danger" id="menu-network" data-menu="network" hidden>
+          <span class="menu__danger-title">Your wallet is on another network</span>
+          <span class="menu__text">Tenet Pay only works on <span data-field="network.name"></span> (chain <span data-field="network.chainId"></span>).</span>
+          <button type="button" class="btn-light btn-light--sm" id="menu-switch-network" data-action="switch-network"><span>Switch to <span data-field="network.name"></span></span></button>
+        </div>
+      </div>
+    </div>
+  </header>
+  <div class="menu-backdrop" id="menu-backdrop" data-action="close-menu" hidden></div>
+
+  <main class="main" id="main">
+
+    <!-- State: escrow cannot be read -->
+    <div class="rpc-banner" id="rpc-banner" data-visible-on="rpc">
+      <span class="rpc-banner__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 8v5M12 16.5v.5"></path><circle cx="12" cy="12" r="9"></circle></svg></span>
+      <div class="rpc-banner__text">
+        <span class="rpc-banner__title">Arc Network cannot be read</span>
+        <span class="rpc-banner__body">Your browser or an extension is blocking rpc.testnet.arc.io, so Tenet cannot check this store's terms in the escrow. Payment stays paused until the escrow is read.</span>
+        <span class="rpc-banner__tried mono">Tried: <span data-field="rpc.tried"></span></span>
+      </div>
+      <button type="button" class="btn-amber" id="rpc-retry" data-action="retry-rpc">
+        <span class="spin spin--14 spin--amber" data-visible-flag="rpcRetrying"></span>
+        <span data-visible-flag="!rpcRetrying">Retry</span><span data-visible-flag="rpcRetrying">Reading Arc</span>
+      </button>
+    </div>
+
+    <!-- Screen: no payment link -->
+    <section class="center-card" id="screen-nolink" data-screen="nolink" data-visible-on="nolink">
+      <span class="center-card__icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1"></path></svg></span>
+      <h1 class="center-card__title">Open a payment link from a store</h1>
+      <p class="center-card__body">A Tenet checkout starts at the store. When you buy from a store that uses Tenet Pay, it sends you here with your order, its total and its refund terms.</p>
+      <div class="center-card__actions">
+        <a href="#" class="btn-outline" id="nolink-try-store" data-field-href="links.demoStore"><span>Try it at <span data-field="links.demoStoreLabel"></span></span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>
+        <a href="#" class="btn-text" id="nolink-how" data-field-href="links.how">How it works</a>
+      </div>
+    </section>
+
+    <!-- Screen: order not found or service down -->
+    <section class="center-card" id="screen-error" data-screen="error" data-visible-on="notfound down">
+      <span class="center-card__icon center-card__icon--red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 7.5v5.5M12 16v.5"></path></svg></span>
+      <h1 class="center-card__title" data-visible-on="notfound">Order <span data-field="route.orderId"></span> was not found</h1>
+      <h1 class="center-card__title" data-visible-on="down">Tenet is not responding</h1>
+      <p class="center-card__body" data-visible-on="notfound">This payment link does not match any order on Tenet. Check the link the store sent you, or start the purchase again at the store.</p>
+      <p class="center-card__body" data-visible-on="down">The order could not be loaded because the Tenet service did not answer. Nothing has been charged.</p>
+      <span class="error-detail mono" id="error-detail" data-field="error.detail"></span>
+      <div class="center-card__actions">
+        <button type="button" class="btn-light" id="error-retry" data-action="retry-load">Try again</button>
+        <a href="#" class="btn-outline" id="error-back-to-store" data-field-href="links.demoStore" data-visible-on="down">Back to store</a>
+      </div>
+    </section>
+
+    <!-- Checkout header -->
+    <div class="checkout-head" id="checkout-head" data-visible-on="loading ready mismatch rpc approve pay confirm paid">
+      <div class="checkout-head__left">
+        <div class="checkout-head__title-row">
+          <h1 class="checkout-head__title">Checkout</h1>
+          <span class="badge-paid mono" id="badge-paid" data-visible-on="paid"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Paid</span>
+        </div>
+        <div class="checkout-head__meta">
+          <span class="mono ink">Order <span data-field="route.orderId"></span></span>
+          <span class="meta-dot"></span>
+          <span class="skeleton skeleton--line" data-visible-on="loading"></span>
+          <span data-visible-on="ready mismatch rpc approve pay confirm paid">Sold by <span class="ink" data-field="checkout.store.domain"></span></span>
+        </div>
+      </div>
+      <a href="#" class="back-link" id="head-back-to-store" data-field-href="checkout.store.url"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 6l-6 6 6 6"></path></svg>Back to store</a>
+    </div>
+
+    <!-- State: loading -->
+    <div class="loading" id="checkout-loading" data-visible-on="loading">
+      <div class="card card--row">
+        <span class="skeleton skeleton--thumb"></span>
+        <div class="skeleton-stack"><span class="skeleton skeleton--a"></span><span class="skeleton skeleton--b"></span><span class="skeleton skeleton--c"></span></div>
+        <span class="skeleton skeleton--total"></span>
+      </div>
+      <div class="two-col">
+        <div class="card card--pad stack-16"><span class="skeleton skeleton--title"></span><span class="skeleton skeleton--row"></span><span class="skeleton skeleton--row"></span><span class="skeleton skeleton--row"></span></div>
+        <div class="card card--pad stack-16">
+          <span class="card-title-sm">Preparing your checkout</span>
+          <div class="prep-list">
+            <div class="prep-item"><span class="prep-dot prep-dot--done"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>Order loaded from Tenet</div>
+            <div class="prep-item"><span class="spin spin--16"></span>Building the refund terms from the store's structure</div>
+            <div class="prep-item prep-item--todo"><span class="prep-dot"></span>Checking the terms hash in the escrow on Arc</div>
+          </div>
+          <span class="skeleton skeleton--button"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Checkout body -->
+    <div class="checkout" id="checkout-main" data-visible-on="ready mismatch rpc approve pay confirm paid">
+      <div class="card card--row item-card" id="order-item">
+        <div class="item-card__thumb">
+          <svg width="54" height="54" viewBox="0 0 64 64" fill="none" stroke="#B4F0CB" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M32 9L53 20v24L32 55 11 44V20L32 9z"></path><path d="M11 20l21 11 21-11M32 31v24"></path><path d="M21.5 14.5l21 11" stroke-opacity="0.35"></path></svg>
+        </div>
+        <div class="item-card__info">
+          <span class="item-card__name" data-field="checkout.item.name"></span>
+          <span class="item-card__desc" data-field="checkout.item.description"></span>
+          <span class="item-card__qty mono"><span>Qty <span data-field="checkout.item.quantity"></span> · <span data-field="checkout.item.price"></span> <span data-field="checkout.currency"></span></span></span>
+        </div>
+        <div class="item-card__total">
+          <span class="label-xs">Total</span>
+          <span class="item-card__amount mono"><span data-field="checkout.total"></span> <span class="item-card__cur" data-field="checkout.currency"></span></span>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <!-- Refund terms -->
+        <div class="card card--pad terms-card" id="terms-card">
+          <div class="card-head">
+            <span class="card-head__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.2-7 10-4-1.8-7-5.5-7-10V6l7-3z"></path><path d="M9 12l2 2 4-4"></path></svg></span>
+            <div class="card-head__text"><span class="card-head__title">Refund terms</span><span class="card-head__sub">What you get back if something goes wrong.</span></div>
+          </div>
+          <div class="rules" id="terms-rules">
+            <div class="rules__list" id="terms-rule-list" data-list="checkout.terms.rules"></div>
+            <div class="rules__deadline"><span class="rules__deadline-label">Claim deadline</span><span class="rules__deadline-value" data-field="checkout.terms.claimDeadline"></span></div>
+          </div>
+          <button type="button" class="row-btn" id="open-policy" data-action="open-policy">Read full refund policy<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#93A29A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"></path></svg></button>
+
+          <div class="seal seal--ok" id="seal-verified" data-visible-on="ready approve pay confirm paid">
+            <span class="seal__icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+            <div class="seal__text"><span class="seal__title">Terms verified</span><span class="seal__sub mono">Matches the escrow · <span data-field="checkout.terms.hashShort"></span></span></div>
+            <button type="button" class="seal__copy mono" id="copy-terms-hash" data-action="copy-hash" title="Copy full hash"><span data-visible-flag="!copied">Copy</span><span data-visible-flag="copied">Copied</span></button>
+          </div>
+          <div class="seal seal--bad" id="seal-mismatch" data-visible-on="mismatch">
+            <div class="seal__row">
+              <span class="seal__icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"></path></svg></span>
+              <div class="seal__text"><span class="seal__title">Terms do not match</span><span class="seal__sub">The text above is not what the store registered.</span></div>
+            </div>
+            <div class="seal__hashes mono"><span class="seal__hash-label">This page</span><span data-field="checkout.terms.hashShort"></span><span class="seal__hash-label">Escrow</span><span data-field="checkout.terms.escrowHashShort"></span></div>
+          </div>
+          <div class="seal seal--unread" id="seal-unread" data-visible-on="rpc">
+            <span class="seal__icon mono">?</span>
+            <div class="seal__text"><span class="seal__title">Not verified yet</span><span class="seal__sub">Waiting to read the escrow on Arc.</span></div>
+          </div>
+        </div>
+
+        <!-- Pay card -->
+        <div class="card card--pad pay-card" id="pay-card">
+          <span class="pay-title" data-visible-on="ready rpc approve pay confirm">Pay <span class="pay-title__amount mono"><span data-field="checkout.total"></span> <span data-field="checkout.currency"></span></span></span>
+          <span class="pay-title" data-visible-on="paid">Paid <span class="pay-title__amount pay-title__amount--muted mono"><span data-field="checkout.total"></span> <span data-field="checkout.currency"></span></span></span>
+          <span class="pay-title pay-title--blocked" data-visible-on="mismatch">Do not pay</span>
+
+          <div class="pay-rows">
+            <div class="pay-row">
+              <span class="arc-logo" data-slot="arc-logo" title="Arc Network"><svg viewBox="0 0 500 500" width="30" height="30" fill="none" aria-hidden="true"><rect width="500" height="500" rx="250" fill="#1B3158"/> <path d="M250.466 85C291.387 85 327.762 120.453 352.899 184.828C365.973 218.31 375.592 258.091 381.291 301.368C381.801 305.233 382.234 309.161 382.679 313.081C382.824 313.323 382.911 313.548 382.881 313.731C382.881 313.731 386.231 334.649 386.942 371.001H386.564C381.597 366.924 323.011 320.889 225.894 334.219C227.359 317.784 229.374 301.793 231.978 286.465C232.111 285.682 232.265 284.925 232.4 284.147C270.491 282.999 303.831 287.422 329.397 293.219C329.302 292.612 329.223 291.988 329.126 291.384C323.871 258.658 316.118 228.697 306.121 203.093C289.776 161.227 268.447 135.216 250.466 135.216C232.486 135.216 211.157 161.228 194.812 203.093C190.856 213.219 187.254 224.019 184.024 235.41C179.483 251.372 175.668 268.484 172.621 286.464C168.112 313.017 165.295 341.496 164.257 371.001H114C116.319 300.984 128.19 235.639 148.033 184.828C173.165 120.453 209.545 85.0002 250.466 85Z" fill="white"/></svg></span>
+              <div class="pay-row__text"><span class="pay-row__title">Paid on Arc Network</span><span class="pay-row__sub mono"><span data-field="network.name"></span> · chain <span data-field="network.chainId"></span></span></div>
+              <span class="pay-row__aside">Gas in USDC</span>
+            </div>
+            <div class="pay-rows__divider"></div>
+            <div class="pay-row" id="pay-from-connected" data-visible-wallet="connected">
+              <span class="avatar avatar--30"></span>
+              <div class="pay-row__text"><span class="label-xs">From</span><span class="mono pay-row__value" data-field="wallet.addressShort"></span></div>
+              <div class="pay-row__right"><span class="label-xs">Balance</span><span class="mono pay-row__value"><span data-field="wallet.balanceShown"></span> USDC</span></div>
+            </div>
+            <div class="pay-row" id="pay-from-empty" data-visible-wallet="disconnected connecting error">
+              <span class="avatar avatar--30 avatar--empty"></span>
+              <div class="pay-row__text"><span class="label-xs">From</span>
+                <span class="pay-row__muted" data-visible-wallet="disconnected">No wallet connected</span>
+                <span class="pay-row__muted" data-visible-wallet="connecting">Connecting...</span>
+                <span class="pay-row__muted" data-visible-wallet="error">Wallet on the wrong network</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="notice-red" id="notice-failed" data-visible-on="ready" data-visible-flag="failed"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg><span data-field="ui.failText"></span></div>
+          <div class="notice-red" id="notice-rejected" data-visible-on="ready" data-visible-flag="rejected"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#F2786B" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4.5M12 15.5v.5"></path></svg>You rejected the request in your wallet. Nothing was charged.</div>
+
+          <button type="button" class="btn-pay" id="pay-submit" data-action="pay" data-visible-on="ready" data-visible-wallet="connected"><span>Pay <span data-field="checkout.total"></span> <span data-field="checkout.currency"></span></span><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+          <button type="button" class="btn-pay" id="pay-connect" data-action="open-menu" data-menu-target="connect" data-visible-on="ready" data-visible-wallet="disconnected connecting">Connect wallet to pay</button>
+          <div class="stack-10" id="pay-wrong-network" data-visible-on="ready" data-visible-wallet="error">
+            <div class="text-red">Your wallet is on another network. Switch to <span data-field="network.name"></span> to pay.</div>
+            <button type="button" class="btn-switch" id="pay-switch-network" data-action="switch-network">Switch to <span data-field="network.name"></span></button>
+          </div>
+          <div class="stack-12" id="pay-blocked" data-visible-on="mismatch">
+            <p class="text-blocked">The refund terms on this page are not the terms <span data-field="checkout.store.domain"></span> registered in the escrow. If you paid, a judge would rule on different terms than the ones you read. Go back to the store or contact it.</p>
+            <div class="btn-blocked" aria-disabled="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg>Payment blocked</div>
+          </div>
+          <div class="btn-waiting" id="pay-waiting" data-visible-on="rpc" aria-disabled="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg>Waiting for Arc to verify the terms</div>
+
+          <!-- States: approve, pay, confirm -->
+          <div class="stack-12" id="pay-progress" data-visible-on="approve pay confirm">
+            <div class="progress" role="status">
+              <div class="progress__head">
+                <span class="spin spin--18"></span>
+                <span class="progress__label" data-visible-on="approve">Approve in your wallet</span>
+                <span class="progress__label" data-visible-on="pay">Pay in your wallet</span>
+                <span class="progress__label" data-visible-on="confirm">Confirming on Arc...</span>
+                <span class="progress__step mono" id="progress-step" data-field="ui.progressStep"></span>
+              </div>
+              <div class="progress__segs" id="progress-segments"></div>
+            </div>
+            <span class="progress__note" data-visible-on="approve">Lets the escrow take exactly <span data-field="checkout.total"></span> <span data-field="checkout.currency"></span> from your wallet. Only gas is charged for this step.</span>
+            <span class="progress__note" data-visible-on="pay">Sends <span data-field="checkout.total"></span> <span data-field="checkout.currency"></span> into escrow for order <span data-field="route.orderId"></span>, under the terms you just read.</span>
+            <span class="progress__note" data-visible-on="confirm">Your payment is on its way into the escrow. This usually takes a few seconds.</span>
+            <a href="#" target="_blank" rel="noopener" class="tx-link mono" id="progress-tx-link" data-visible-on="confirm" data-field-href="payment.txUrl"><span>tx <span data-field="payment.txShort"></span></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>
+          </div>
+
+          <!-- State: paid -->
+          <div class="stack-16" id="paid-block" data-visible-on="paid">
+            <div class="paid-bar" aria-disabled="true">
+              <span class="paid-bar__check"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></span>
+              <span class="paid-bar__text">Paid. Held in escrow on Arc.</span>
+              <span class="paid-bar__done mono">Done</span>
+            </div>
+            <div class="paid-grid">
+              <span class="label-dim">Transaction</span>
+              <a href="#" target="_blank" rel="noopener" class="tx-link mono paid-grid__end" id="paid-tx-link" data-field-href="payment.txUrl"><span data-field="payment.txShort"></span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg></a>
+              <span class="label-dim">Paid</span><span class="paid-grid__end paid-grid__val" data-field="payment.paidAt"></span>
+              <span class="label-dim">Released to store</span><span class="paid-grid__end paid-grid__val" data-field="payment.releaseAt"></span>
+              <span class="label-dim">Store</span>
+              <span class="paid-grid__end store-notify" id="store-notify" data-notified="false">
+                <span class="live-dot" data-visible-flag="!storeNotified"></span>
+                <span data-visible-flag="!storeNotified">Registered on Arc, waiting for Tenet to read it · <span data-field="ui.notifyElapsed"></span></span>
+                <span data-visible-flag="storeNotified">Tenet read it. The store is notified.</span>
+              </span>
+            </div>
+            <div class="paid-actions">
+              <a href="#" class="btn-light btn-light--grow" id="paid-view-order" data-field-href="links.myOrders">View my order</a>
+              <a href="#" class="btn-outline btn-outline--grow" id="paid-back-to-store" data-field-href="checkout.store.url">Back to store</a>
+            </div>
+          </div>
+
+          <div class="escrow-note" id="escrow-note" data-visible-on="ready mismatch rpc approve pay confirm">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#5CC48A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"></rect><path d="M8 11V8a4 4 0 018 0v3"></path></svg>
+            <span><span class="ink">Funds go into escrow on Arc.</span> They are released to the store after <span data-field="checkout.holdDays"></span> days, or earlier when a claim is decided.</span>
+          </div>
+          <div class="testnet-note"><span class="dot dot--amber"></span>Testnet: deadlines run in minutes.</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer" id="site-footer">
+    <div class="site-footer__inner">
+      <div class="site-footer__left">
+        <span class="site-footer__text">Protected by Tenet: escrow on Arc Network, disputes judged on GenLayer, store emails verified with Lacre</span>
+        <span class="site-footer__links"><a href="https://tenet.rpmdev.app" id="footer-tenet">tenet.rpmdev.app</a><a href="https://techshopping.site" id="footer-techshopping">techshopping.site</a></span>
+      </div>
+      <div class="site-footer__chips">
+        <span class="stack-chip"><span class="stack-chip__k mono">ESCROW</span>Arc Network</span>
+        <span class="stack-chip"><span class="stack-chip__k mono">JUDGE</span>GenLayer</span>
+        <span class="stack-chip"><span class="stack-chip__k mono">EMAILS</span>Lacre</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Modal: full refund policy -->
+  <div class="modal" id="policy-modal" data-action="close-policy" hidden>
+    <div class="modal__dialog" role="dialog" aria-modal="true" aria-labelledby="policy-title" id="policy-dialog">
+      <div class="modal__head">
+        <div class="modal__head-text"><span class="modal__title" id="policy-title">Full refund policy</span><span class="modal__sub"><span data-field="checkout.store.domain"></span> · shown exactly as it is hashed</span></div>
+        <button type="button" class="icon-btn" id="policy-close" data-action="close-policy" aria-label="Close"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div class="modal__body"><pre class="terms-text" id="policy-text" data-field="checkout.terms.text"></pre></div>
+      <div class="modal__foot">
+        <div class="modal__foot-row">
+          <span class="label-caps mono">SHA-256 OF THIS TEXT</span>
+          <span class="policy-status policy-status--ok" data-visible-on="ready approve pay confirm paid">Matches the escrow on Arc</span>
+          <span class="policy-status policy-status--bad" data-visible-on="mismatch">Does not match the escrow</span>
+          <span class="policy-status policy-status--wait" data-visible-on="rpc">Escrow not read yet</span>
+        </div>
+        <span class="mono modal__hash" data-field="checkout.terms.hash"></span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== Templates used by app.js ===== -->
+<template id="tpl-term-rule">
+  <div class="rule" data-rule-key="">
+    <span class="rule__icon" data-rule-icon=""></span>
+    <div class="rule__text"><span class="rule__name" data-field="name"></span><span class="rule__cond" data-field="condition"></span></div>
+    <span class="rule__refund mono" data-field="refund"></span>
+  </div>
+</template>
+
+<template id="tpl-progress-seg">
+  <div class="seg" data-seg="" data-seg-state="todo">
+    <div class="seg__bar"><span class="seg__sweep"></span></div>
+    <span class="seg__label mono"></span>
+  </div>
+</template>
+
+
+<template id="icon-rule-late"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></template>
+<template id="icon-rule-not_as_described"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.5L12 3.5l8.5 4v9L12 20.5l-8.5-4v-9z"></path><path d="M3.5 7.5L12 11.5l8.5-4M12 11.5v9"></path></svg></template>
+<template id="icon-rule-not_delivered"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20.5s6.5-5.8 6.5-10.5a6.5 6.5 0 10-13 0c0 4.7 6.5 10.5 6.5 10.5z"></path><circle cx="12" cy="10" r="2.3"></circle></svg></template>
+
+<!-- Inline SVG: Tenet icon. Ids are made unique per copy by app.js -->
+<template id="icon-tenet">
+  <svg viewBox="0 0 64 64" width="100%" height="100%" aria-hidden="true">
+    <defs><linearGradient id="tn-grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1D4A32"></stop><stop offset="1" stop-color="#0E1411"></stop></linearGradient></defs>
+    <rect width="64" height="64" rx="14" fill="url(#tn-grad)"></rect>
+    <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="#5CC48A" stroke-opacity="0.45" stroke-width="2"></rect>
+    <path d="M32 14v36M14 32h36" stroke="#B4F0CB" stroke-width="5.5" stroke-linecap="round"></path>
+  </svg>
+</template>
+
+<script src="../circle.js?v=20261023a"></script>
+<script type="module" src="../checkout.js?v=20261026a"></script>
+</body>
+</html>

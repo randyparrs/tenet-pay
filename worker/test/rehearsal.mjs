@@ -527,15 +527,15 @@ async function run(url, stubPort, keys) {
   check(Number.isInteger(moG6.proof_requested_at) && moG6.windows_seconds.proof === 300 && !moG1.submissions.some((s) => s.content && s.content.body_b64),
     "My orders data: when the judge asked for proof and the windows; email evidence is listed without its bytes");
 
-  // ---- the checkout (site/) in a DOM -------------------------------------
+  // ---- the checkout (site/pay/) in a DOM ---------------------------------
   say("-- the new checkout page");
   const ck = await makeCheckout({ getCore: () => core, cfg, pub, wallet, P });
   await ck.load("#orders/TS-200002");
-  check(ck.replaced === "orders/#/orders/TS-200002", "CHECKOUT an old link to My orders (#orders/...) goes to the new My orders");
+  check(ck.replaced === "../orders/#/orders/TS-200002", "CHECKOUT an old link to My orders (#orders/...) goes to the new My orders");
   await ck.load("");
   check(ck.status() === "nolink" && ck.shown("screen-nolink"), "CHECKOUT without a payment link: the screen that sends you to a store");
   const howHtml = readFileSync(P("site/how/index.html"), "utf8");
-  check(ck.attr("nolink-how", "href") === "how/" && !/<script/i.test(howHtml) && (howHtml.match(/class="how-step"/g) || []).length === 4
+  check(ck.attr("nolink-how", "href") === "../how/" && !/<script/i.test(howHtml) && (howHtml.match(/class="how-step"/g) || []).length === 4
     && /The store registers/.test(howHtml) && /You pay on Tenet's checkout/.test(howHtml) && /you open a claim/.test(howHtml) && /A judge decides, the escrow pays/.test(howHtml)
     && /class="testnet-note"/.test(howHtml) && howHtml.includes('href="https://techshopping.site"') && howHtml.includes('href="../orders/"')
     && howHtml.includes('href="https://merchants.paytenet.site"') && howHtml.includes('href="../styles.css'),
@@ -1094,10 +1094,46 @@ async function run(url, stubPort, keys) {
   const appScript = /<script>([\s\S]*?)<\/script>/.exec(appHtml)[1];
   const goesTo = (hash) => { let to = null; vm.runInNewContext(appScript, { window: { location: { hash, replace: (u) => { to = u; } } } }); return to; };
   const M = "https://merchants.paytenet.site/";
-  check(goesTo("#orders") === "/orders/#/orders" && goesTo("#orders/TS-171823") === "/orders/#/orders/TS-171823" && goesTo("#pay/TS-171823") === "/#pay/TS-171823"
+  check(goesTo("#orders") === "/orders/#/orders" && goesTo("#orders/TS-171823") === "/orders/#/orders/TS-171823" && goesTo("#pay/TS-171823") === "/pay/#pay/TS-171823"
     && goesTo("#stores") === M + "#/register" && goesTo("#panel") === M + "#/orders" && goesTo("#how") === "/how/" && goesTo("") === M
     && goesTo("#orders/<script>") === M && !/pay\.js/.test(appHtml) && readdirSync(P("site/app")).join() === "index.html" && appHtml.includes('http-equiv="refresh" content="0; url=' + M + '"'),
     "APP /app/ is only the redirect page (the old page is gone): old order links to My orders, payment links to the checkout, How it works to /how/, stores and panel to merchants.paytenet.site, the rest there too");
+
+  // ---- the home page (site/index.html): links from stores go on to the checkout (site/pay/) --------------
+  const homeHtml = readFileSync(P("site/index.html"), "utf8");
+  const homeScript = /<script>([\s\S]*?)<\/script>/.exec(homeHtml)[1];
+  const homeTo = (hash) => { let to = null; vm.runInNewContext(homeScript, { window: { location: { hash, replace: (u) => { to = u; } } } }); return to; };
+  check(homeTo("#pay/TS-171823") === "/pay/#pay/TS-171823" && homeTo("#/pay/TS-171823") === "/pay/#pay/TS-171823" && homeTo("#orders") === "/orders/#/orders"
+    && homeTo("#orders/TS-171823") === "/orders/#/orders/TS-171823" && homeTo("#stores") === M + "#/register" && homeTo("#panel") === M + "#/orders"
+    && homeTo("#how") === "/how/" && homeTo("") === null && homeTo("#top") === null && homeTo("#products") === null && homeTo("#pay") === null,
+    "HOME paytenet.site: a store's payment link (#pay/<order>, the form the Worker and TechShopping give) opens the checkout at /pay/; the earlier pages' links go where they went; the page's own anchors stay");
+  const ckHtml = readFileSync(P("site/pay/index.html"), "utf8");
+  const ckLinkForms = [unpaid.checkout_url.replace(/[^/]+$/, "TS-171823"), JSON.parse(readFileSync(P("techshopping/site/store.json"), "utf8")).store.checkoutUrlTemplate.replace("{orderId}", "TS-171823")];
+  check(ckLinkForms.every((u) => new URL(u).origin === "https://paytenet.site" && new URL(u).pathname === "/") &&['href="../favicon.svg', 'href="../styles.css', 'src="../circle.js', 'src="../checkout.js', 'href="../" class="brand"'].every((s) => ckHtml.includes(s))
+    && homeTo(new URL(ckLinkForms[0]).hash) === "/pay/" + new URL(ckLinkForms[0]).hash && homeTo(new URL(ckLinkForms[1]).hash) === "/pay/" + new URL(ckLinkForms[1]).hash,
+    "HOME the checkout at /pay/ loads the shared files from the site root and its brand goes home; the Worker's and TechShopping's link forms both reach it");
+  const homeLinks = [...homeHtml.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]);
+  const HOME_LINKS = ["#top", "#products", "https://github.com/randyparrs/Tenet", "https://youtu.be/z4cT_LdlxKg", "https://techshopping.site",
+    "https://tenet.rpmdev.app/#live-cases", "https://tenet.rpmdev.app/#how-it-works", "https://tenet.rpmdev.app/#demo-shop", "https://paytenet.site/orders/",
+    "https://paytenet.site/how/", "https://merchants.paytenet.site", "https://github.com/randyparrs/tenet-pay", "https://lacre.in-sidr.xyz"];
+  const homeFiles = [...homeHtml.matchAll(/(?:href|src)="((?:home\.(?:css|js)|favicon\.svg)[^"]*)"/g)].map((m) => m[1].split("?")[0]);
+  check(homeLinks.every((h) => HOME_LINKS.includes(h)) && HOME_LINKS.every((h) => homeLinks.includes(h)) && homeFiles.join() === "favicon.svg,home.css,home.js"
+    && homeFiles.every((f) => existsSync(P("site/" + f))) && !/[–—]/.test(homeHtml + readFileSync(P("site/home.js"), "utf8") + readFileSync(P("site/home.css"), "utf8"))
+    && /<h1[^>]*>Buyer protection for stablecoin payments\.<\/h1>/.test(homeHtml),
+    "HOME links: Products, both repositories, the video, TechShopping, Tenet's live cases, How it works and Demo Shop, My orders, How it works, For stores, Lacre; its own files are home.css, home.js and the favicon");
+  const homeImgs = [...homeHtml.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1]);
+  check(homeImgs.join() === "logos/arc.svg,logos/genlayer.svg,logos/lacre.svg,https://i.ytimg.com/vi/z4cT_LdlxKg/maxresdefault.jpg"
+    && readdirSync(P("site/logos")).join() === "arc.svg,genlayer.svg,lacre.svg"
+    && ["arc", "genlayer", "lacre"].every((n) => /^(<\?xml[^>]*\?>)?\s*<svg[\s>]/.test(readFileSync(P(`site/logos/${n}.svg`), "utf8")) && !/<script|\son\w+=|href=/i.test(readFileSync(P(`site/logos/${n}.svg`), "utf8")))
+    && !homeHtml.includes("logo-slot"),
+    "HOME logos only in Built on: the official marks of Arc, GenLayer and Lacre (plain SVG, no script, no links); the only other image is the video's thumbnail");
+  const tenetData = JSON.parse(readFileSync(T("site/data/tenet.json"), "utf8"));
+  const c3 = /^(\d+) \/ (\d+)$/.exec(tenetData.measurements.runs.find((r) => r.id === "C3").results["correct decision"]);
+  const homeNumbers = { "verdicts-expected": tenetData.bradbury_run.cases.filter((c) => c.passed === true).length, "verdicts-total": tenetData.bradbury_run.cases.length,
+    "committee-correct": +c3[1], "committee-total": +c3[2], "orders-settled": tenetData.live_cases.filter((c) => c.status === "settled").length };
+  const homeShown = Object.fromEntries([...homeHtml.matchAll(/<span data-field="([a-z-]+)">([^<]*)<\/span>/g)].map((m) => [m[1], m[2]]));
+  check(Object.keys(homeShown).length === 5 && Object.entries(homeNumbers).every(([k, v]) => homeShown[k] === String(v)),
+    `HOME the three numbers are Tenet's data at the pinned commit (build_site.py): verdicts ${homeShown["verdicts-expected"]} / ${homeShown["verdicts-total"]}, committee C3 ${homeShown["committee-correct"]} / ${homeShown["committee-total"]}, live orders settled ${homeShown["orders-settled"]}`);
 
   say(`judge sends ${c.sends.judge}, Lacre attestations ${c.sends.attest}, set_merchant ${c.sends.set_merchant}, register_key ${c.sends.register_key}, confirm_key ${c.sends.confirm_key}`);
 }
