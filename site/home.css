@@ -151,36 +151,38 @@ button { font: inherit; }
 .tick--br { right: -1px; bottom: -1px; border-right-width: 1px; border-bottom-width: 1px; }
 
 /* Hero */
-.hero { padding-top: clamp(20px, 3vw, 40px); }
+/* Title, numbers and the flow diagram fit together in the first screen of a 1366 to 1920 px desktop: the sizes follow
+   the width and the height of the window. On a phone they stack. */
+.hero { padding-top: clamp(12px, 2vh, 32px); }
 .hero__top {
-  position: relative; display: flex; flex-wrap: wrap; align-items: flex-end;
-  justify-content: space-between; gap: 48px;
-  padding: clamp(32px, 6vw, 80px) clamp(20px, 5vw, 64px) 0;
+  position: relative; display: flex; flex-wrap: wrap; align-items: flex-start;
+  justify-content: space-between; gap: 32px 48px;
+  padding: clamp(24px, min(3.6vw, 4.5vh), 56px) clamp(20px, 5vw, 64px) 0;
 }
-.hero__copy { flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 28px; }
+.hero__copy { flex: 1 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 20px; }
 .hero__title {
-  margin: 0; font-size: clamp(46px, 7.6vw, 116px); font-weight: 300;
+  margin: 0; font-size: clamp(48px, min(5vw, 8.6vh), 96px); font-weight: 300;
   letter-spacing: -0.04em; line-height: 0.98; color: var(--color-text-strong);
-  text-wrap: balance; max-width: 11ch;
+  text-wrap: balance; max-width: 14ch;
 }
 .hero__lede { display: flex; align-items: center; gap: 14px; }
 .hero__lede-rule { width: 32px; height: 1px; background: var(--color-green); }
 .hero__lede-text { font-size: clamp(17px, 1.6vw, 21px); font-weight: 300; color: var(--color-text-lede); }
 
 .metrics { flex: 0 1 300px; min-width: 240px; display: flex; flex-direction: column; border-top: 1px solid var(--line); margin: 0; }
-.metric { display: flex; flex-direction: column; gap: 6px; padding: 18px 0; border-bottom: 1px solid var(--line); margin: 0; }
+.metric { display: flex; flex-direction: column; gap: 4px; padding: clamp(10px, 1.6vh, 18px) 0; border-bottom: 1px solid var(--line); margin: 0; }
 .metric__label {
   display: flex; align-items: center; gap: 8px;
   font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.16em; color: var(--color-text-label);
 }
 .metric__dot { width: 6px; height: 6px; border-radius: 50%; background: var(--color-green); flex: none; }
 .metric__value {
-  margin: 0; font-size: 40px; font-weight: 300; letter-spacing: -0.02em;
+  margin: 0; font-size: clamp(30px, min(2.6vw, 4.6vh), 40px); line-height: 1.15; font-weight: 300; letter-spacing: -0.02em;
   color: var(--color-text-strong); font-variant-numeric: tabular-nums;
 }
 
 /* Hero flow diagram */
-.flow { position: relative; height: clamp(330px, 36vw, 460px); margin-top: clamp(24px, 4vw, 48px); }
+.flow { position: relative; height: clamp(260px, 42vh, 460px); margin-top: clamp(16px, 2.4vh, 32px); }
 .flow__canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
 .flow__node { position: absolute; width: 0; height: 0; }
 .flow__dot {
