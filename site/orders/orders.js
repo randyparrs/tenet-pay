@@ -179,8 +179,11 @@ function toOrder(v, co) {
     paidAt: fmt(v.paid_at), releaseAt: v.paid_at ? fmtDay(v.paid_at + co.terms.hold_days * 86400) : "",
     mailTo: orderAddress(v), terms: { rules, text: renderTerms(co.terms.structure, co.terms.hold_days, co.terms.windows) },
     emails,
-    events: ev.map((e) => ({ time: fmt(e.at), what: e.what, tx: e.tx || "", net: e.net || "arc",
-      tone: /refund|Settled/i.test(e.what) ? "ok" : /denied|not provided|unexpected/i.test(e.what) ? "red" : "neutral" })),
+    // One line per transaction, as on Tenet's page: when the Worker logs a transaction twice (sent, then its result,
+    // such as "Verdict proposed" and "Verdict proposed on Arc"), the line shows its last state at that time.
+    events: ev.filter((e, i) => !e.tx || !ev.some((x, j) => j > i && x.tx && x.tx.toLowerCase() === e.tx.toLowerCase()))
+      .map((e) => ({ time: fmt(e.at), what: e.what, tx: e.tx || "", net: e.net || "arc",
+        tone: /refund|Settled/i.test(e.what) ? "ok" : /denied|not provided|unexpected/i.test(e.what) ? "red" : "neutral" })),
     claim: null,
   };
   if (!v.claim) return o;

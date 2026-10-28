@@ -779,6 +779,13 @@ async function run(url, stubPort, keys) {
     "ORDERS the 3 store emails registered with 3 signatures, as the Worker gave them");
   const moLateV = await settled(moLate.order);
   await mo.until(() => mo.text("detail-status") === "Refund ready");
+  const tlRows = [...mo.doc.querySelectorAll("#timeline .tl")];
+  const tlTx = tlRows.map((r) => r.querySelector("[data-f-tx]")?.getAttribute("href") || "").filter((h) => h && h !== "#");
+  const tlText = tlRows.map((r) => r.querySelector('[data-f="what"]')?.textContent || "");
+  const lateEv = (await core.orderView(moLate.order, await t())).events;
+  check(tlTx.length === new Set(tlTx).size && lateEv.filter((e) => e.tx).length > tlTx.length
+    && tlText.includes("Settled on Arc") && !tlText.includes("Verdict executed") && tlText.includes("Verdict proposed on Arc") && !tlText.includes("Verdict proposed"),
+    `ORDERS the timeline has one line per transaction, its last state (${tlTx.length} transactions of ${lateEv.filter((e) => e.tx).length} events with one)`);
   await mo.go("#/orders");
   await mo.until(() => mo.shown("balance-card") && mo.text("balance-sources").includes(moLate.order));
   const moBal = await esc("claimable", [B4.address, USDC]);
