@@ -1121,6 +1121,10 @@ async function run(url, stubPort, keys) {
     && homeFiles.every((f) => existsSync(P("site/" + f))) && !/[–—]/.test(homeHtml + readFileSync(P("site/home.js"), "utf8") + readFileSync(P("site/home.css"), "utf8"))
     && /<h1[^>]*>Buyer protection for stablecoin payments\.<\/h1>/.test(homeHtml),
     "HOME links: Products, both repositories, the video, TechShopping, Tenet's live cases, How it works and Demo Shop, My orders, How it works, For stores, Lacre; its own files are home.css, home.js and the favicon");
+  check(/<p class="hero__eyebrow" id="hero-eyebrow"[^>]*>RULES DETERMINE OUTCOMES\.<\/p>\s*<h1 /.test(homeHtml)
+    && homeHtml.includes('id="hero-lede">The payment waits in escrow on Arc. If something goes wrong, a judge on GenLayer decides.</span>')
+    && !homeHtml.includes("hero__lede-rule") && /\.hero__eyebrow \{[^}]*font-family: var\(--font-mono\);[^}]*color: var\(--color-green\);/.test(readFileSync(P("site/home.css"), "utf8")),
+    "HOME hero: the green monospace label RULES DETERMINE OUTCOMES. above the title, the subtitle on escrow and the judge, no rule before it");
   const homeImgs = [...homeHtml.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1]);
   check(homeImgs.join() === "logos/arc.svg,logos/genlayer.svg,logos/lacre.svg,https://i.ytimg.com/vi/z4cT_LdlxKg/maxresdefault.jpg"
     && readdirSync(P("site/logos")).join() === "arc.svg,genlayer.svg,lacre.svg"
