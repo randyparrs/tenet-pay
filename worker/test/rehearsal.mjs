@@ -1125,6 +1125,15 @@ async function run(url, stubPort, keys) {
     && homeHtml.includes('id="hero-lede">The payment waits in escrow on Arc. If something goes wrong, a judge on GenLayer decides.</span>')
     && !homeHtml.includes("hero__lede-rule") && /\.hero__eyebrow \{[^}]*font-family: var\(--font-mono\);[^}]*color: var\(--color-green\);/.test(readFileSync(P("site/home.css"), "utf8")),
     "HOME hero: the green monospace label RULES DETERMINE OUTCOMES. above the title, the subtitle on escrow and the judge, no rule before it");
+  const circleJs = readFileSync(P("site/circle.js"), "utf8");
+  const circleMeta = (html) => (/<meta name="tenet-circle" content="([^"]*)">/.exec(html) || [])[1];
+  const tenetCircle = circleMeta(readFileSync(T("site/index.html"), "utf8"));
+  const ordersHtml = readFileSync(P("site/orders/index.html"), "utf8");
+  check(circleJs.includes("redirectUri: location.origin + location.pathname,") && !circleJs.includes("redirectUri: location.origin,")
+    && circleJs.includes("s.src = new URL('circle-sdk.js', me || location.href).href") && new URL("circle-sdk.js", "https://paytenet.site/circle.js?v=1").pathname === "/circle-sdk.js"
+    && /^[0-9a-f-]{36}\|\d+-\w+\.apps\.googleusercontent\.com$/.test(tenetCircle) && circleMeta(ckHtml) === tenetCircle && circleMeta(ordersHtml) === tenetCircle
+    && /src="\.\.\/circle\.js\?v=/.test(ckHtml) && /src="\.\.\/circle\.js\?v=/.test(ordersHtml),
+    "CIRCLE the checkout (/pay/) and My orders (/orders/) offer Continue with Google with Tenet's Circle app and Google client; Google sends the buyer back to the page they left and the SDK loads from the site root");
   const homeImgs = [...homeHtml.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1]);
   check(homeImgs.join() === "logos/arc.svg,logos/genlayer.svg,logos/lacre.svg,https://i.ytimg.com/vi/z4cT_LdlxKg/maxresdefault.jpg"
     && readdirSync(P("site/logos")).join() === "arc.svg,genlayer.svg,lacre.svg"

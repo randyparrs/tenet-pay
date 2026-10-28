@@ -52,7 +52,7 @@
     if (!lib) {
       lib = new Promise(function (res, rej) {
         var s = document.createElement('script');
-        s.src = 'circle-sdk.js' + (version ? '?v=' + version : '');
+        s.src = new URL('circle-sdk.js', me || location.href).href + (version ? '?v=' + version : '');
         s.onload = function () { if (window.TenetCircleSdk) res(window.TenetCircleSdk); else rej(new Error('Circle sign-in could not load.')); };
         s.onerror = function () { lib = null; rej(new Error('Circle sign-in could not load.')); };
         document.head.appendChild(s);
@@ -62,7 +62,7 @@
   }
   function configs(c, d) {
     return { appSettings: { appId: c.appId }, loginConfigs: { deviceToken: d.deviceToken, deviceEncryptionKey: d.deviceEncryptionKey,
-      google: { clientId: c.clientId, redirectUri: location.origin, selectAccountPrompt: true } } };
+      google: { clientId: c.clientId, redirectUri: location.origin + location.pathname, selectAccountPrompt: true } } };
   }
 
   /* Approve one challenge in Circle's window */
@@ -108,7 +108,7 @@
     available: function () { return !!cfg(); },
     session: function () { var s = kept(SESSION); return s && s.address ? s : null; },
     signOut: signOut,
-    /* Sign in with Google: the page leaves for Google and comes back to this site's root */
+    /* Sign in with Google: the page leaves for Google and comes back to this same page */
     login: function () {
       var c = cfg();
       if (!c) return Promise.reject(new Error('Circle sign-in is not set up.'));
