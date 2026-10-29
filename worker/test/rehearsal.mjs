@@ -995,7 +995,7 @@ async function run(url, stubPort, keys) {
   const phone = (/@media \(max-width: 600px\) \{([\s\S]*?)\n\}/.exec(merCss) || [])[1] || "";
   check(/\.event \{ display: grid; grid-template-columns: max-content 12px 1fr auto;/.test(merCss) && /\.event__t \{[^}]*white-space: nowrap;/.test(merCss)
     && /\.event \{ grid-template-columns: 12px 1fr auto;/.test(phone) && /\.event__t \{ grid-column: 2 \/ -1; grid-row: 1; \}/.test(phone)
-    && /\.event__what \{ grid-column: 2; grid-row: 2; \}/.test(phone) && /^Oct \d{1,2}, \d{2}:\d{2}$/.test(mc.doc.querySelector("#order-timeline .event__t").textContent),
+    && /\.event__what \{ grid-column: 2; grid-row: 2; \}/.test(phone) && /^[A-Z][a-z]{2} \d{1,2}, \d{2}:\d{2}$/.test(mc.doc.querySelector("#order-timeline .event__t").textContent),
     "MERCHANTS C the timeline's date and time on one line (a column as wide as it needs, no wrap); on a phone, above the event");
   const ANSWER = "Our test report for this unit, serial TS-C65-0042, shows 65 W.";
   await mc.type("f-response", ANSWER);
