@@ -45,9 +45,10 @@ contracts on Bradbury. TechShopping's registered terms hash is
 | `techshopping/` | The example store: its page and its own Worker (orders, the order emails it sends to Tenet, the webhook it receives). |
 | `contracts/` | The two gateway judges as deployed, and the script that builds them from Tenet's templates. |
 | `tests/`, `worker/test/` | The local rehearsal and the tests (below). |
-| `cases/`, `data/` | The policies and the recorded readings of the terms drafting test (F1). |
+| `cases/`, `data/` | The policies and the recorded readings of the terms drafting test (F1), and `data/bradbury-archive.jsonl`: the gateway's judge and Lacre transactions from before GenLayer reset Bradbury in October 2026. Its explorer no longer has them, so My orders and the store panel link them here, marked archived. |
 | `build_site.py` | Copies the shared files into the pages (`terms.js`, `tenet.js`, the Circle SDK), so they cannot drift, and writes the home page's three numbers from Tenet's site data (`tenet/site/data/tenet.json`). |
 | `setup.py` | The testnet setup of the gateway (key, escrow, judges), one command at a time. |
+| `archive_bradbury.py` | Writes `data/bradbury-archive.jsonl` from the gateway Worker's public API. |
 
 What is in this repository is what runs on the sites and Workers above: the page files are served byte for byte as they
 are here, and `python contracts/build_judge_gw.py --check` rebuilds both judges from the pinned Tenet templates and

@@ -16,11 +16,10 @@
  * (tenet-orders.draft.<orderId>), so they survive a reload and a change of account.
  */
 import { get, wallet, call, word, SEL, sendTx, waitReceipt, withBytes, cj, renderTerms, ruleSummaries, cancelled,
-  txUrl as arcTxUrl, money as centsToUsdc, shortAddr, CHAIN_ID, ARC } from "../tenet.js";
+  txUrl as arcTxUrl, glTx, money as centsToUsdc, shortAddr, CHAIN_ID, ARC } from "../tenet.js";
 
 const CONFIG = { draftKeyPrefix: "tenet-orders.draft.", pollEvery: 8000, readEvery: 4000 };
 const LINKS = { store: "https://techshopping.site" };
-const GL_TX = (h) => `https://explorer-bradbury.genlayer.com/tx/${h}`;
 
 const TYPES = {
   late: { name: "It arrived late", event: "arrived late" },
@@ -177,12 +176,17 @@ function toOrder(v, co) {
       price: centsToUsdc(item ? item.price_cents : v.amount_cents), icon: itemIcon(item ? item.name : v.description) },
     total: centsToUsdc(v.amount_cents), currency: "USDC",
     paidAt: fmt(v.paid_at), releaseAt: v.paid_at ? fmtDay(v.paid_at + co.terms.hold_days * 86400) : "",
+    // The timeline's note: while the payment is held, the day it goes to the store; once settled, how it was settled.
+    timelineNote: v.settled ? `Settled on Arc on ${fmtDay(v.settled.at)}: ` + [
+      v.settled.refund > 0 ? `${usdc(v.settled.refund)} USDC refunded to you` : "",
+      v.settled.released > 0 ? `${usdc(v.settled.released)} USDC released to ${v.domain}` : ""].filter(Boolean).join(", ") + "."
+      : `In escrow on Arc. Released to the store: ${v.paid_at ? fmtDay(v.paid_at + co.terms.hold_days * 86400) : ""}.`,
     mailTo: orderAddress(v), terms: { rules, text: renderTerms(co.terms.structure, co.terms.hold_days, co.terms.windows) },
     emails,
     // One line per transaction, as on Tenet's page: when the Worker logs a transaction twice (sent, then its result,
     // such as "Verdict proposed" and "Verdict proposed on Arc"), the line shows its last state at that time.
     events: ev.filter((e, i) => !e.tx || !ev.some((x, j) => j > i && x.tx && x.tx.toLowerCase() === e.tx.toLowerCase()))
-      .map((e) => ({ time: fmt(e.at), what: e.what, tx: e.tx || "", net: e.net || "arc",
+      .map((e) => ({ time: fmt(e.at), at: e.at, what: e.what, tx: e.tx || "", net: e.net || "arc",
         tone: /refund|Settled/i.test(e.what) ? "ok" : /denied|not provided|unexpected/i.test(e.what) ? "red" : "neutral" })),
     claim: null,
   };
@@ -231,7 +235,8 @@ function toOrder(v, co) {
     storeDeadline: c.judge === "subjective" ? (c.at + w.response) * 1000 : null,
     storeAnswered: !!response, storeAnswer: response && typeof response.content === "string" ? response.content : "",
     proof,
-    result: v.settled ? { outcome: v.settled.refund > 0 ? "refund" : "released", refunded: usdc(v.settled.refund), pct,
+    result: v.settled ? { outcome: v.settled.refund > 0 ? "refund" : "released", refunded: usdc(v.settled.refund),
+      released: usdc(v.settled.released || 0), pct,
       summary: v.settled.refund > 0 ? `refund of ${usdc(v.settled.refund)} USDC` : (finalStep && finalStep.final.reason) || "paid to the store" } : null,
     times: { open: hm(open.at || c.at), emails: hm(emailsTx.at), store: hm(storeTx.at || (noResponse && noResponse.at)), judge: hm(finalEv.at),
       verdict: hm(finalEv.at), settle: hm(settledTx.at), withdraw: hm(lastOutTx && lastOutTx.at) },
@@ -299,13 +304,21 @@ function cloneTemplate(id) { return document.getElementById(id).content.firstEle
 function findById(list, id) { for (let i = 0; i < (list || []).length; i++) if (list[i].id === id) return list[i]; return null; }
 function txShort(h) { return h ? h.slice(0, 6) + "\u2026" + h.slice(-4) : ""; }
 function setF(root, name, value) { $all('[data-f="' + name + '"]', root).forEach((el) => { el.textContent = value == null ? "" : value; }); }
-/** Arc transactions open Arc's explorer; the judge's (GenLayer) open Bradbury's. */
-function setTx(root, hash, net) {
+/** Arc transactions open Arc's explorer; the judge's and Lacre's (GenLayer) open Bradbury's, or their archived record. */
+function setTx(root, hash, net, at) {
   const a = $("[data-f-tx]", root);
   if (!a) return;
   if (!hash) { a.remove(); return; }
-  a.setAttribute("href", net && net !== "arc" ? GL_TX(hash) : arcTxUrl(hash));
+  const gl = net && net !== "arc" ? glTx(hash, at) : null;
+  a.setAttribute("href", gl ? gl.href : arcTxUrl(hash));
   setF(a, "txShort", txShort(hash));
+  if (gl && gl.archived) {
+    a.setAttribute("title", "Archived: the record of " + hash + " in the repository");
+    const tag = document.createElement("span");
+    tag.className = "archived-tag";
+    tag.textContent = "archived";
+    a.appendChild(tag);
+  }
 }
 function renderIfChanged(el, data, build) {
   const sig = JSON.stringify(data);
@@ -684,7 +697,7 @@ function renderTimeline() {
       const row = cloneTemplate("tpl-event");
       row.setAttribute("data-tone", ev.tone || "neutral");
       setF(row, "what", ev.what); setF(row, "time", ev.time);
-      setTx(row, ev.tx, ev.net);
+      setTx(row, ev.tx, ev.net, ev.at);
       el.appendChild(row);
     });
   });

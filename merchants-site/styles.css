@@ -413,6 +413,7 @@ input[type=number]::-webkit-inner-spin-button { opacity: 0.3; }
 .event[data-tone="bad"] .event__dot { background: var(--red); }
 .event__what { font-size: 13px; color: var(--text-2); }
 .event__tx { font-size: 11.5px; color: var(--green-dim); }
+.archived-tag { display: inline-flex; align-items: center; margin-left: 6px; padding-left: 6px; font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--green-dim); box-shadow: inset 1px 0 0 var(--line); }
 
 /* Balance */
 .balance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px; align-items: start; max-width: 960px; }

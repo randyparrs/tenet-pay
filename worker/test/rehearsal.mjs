@@ -761,6 +761,11 @@ async function run(url, stubPort, keys) {
   const moNadV = await settled(moNad.order);
   await mo.until(() => mo.text("detail-status") === "Released to the store");
   check(moNadV.settled?.released === 2_000_000 && mo.text("detail-status") === "Released to the store", "ORDERS the claim decided for the store: Released to the store");
+  const settledNote = (v) => mo.text("timeline-card").includes("Settled on Arc on ") && !mo.text("timeline-card").includes("In escrow on Arc")
+    && mo.text("claim-result").includes((v.settled.refund / 1e6).toFixed(2)) && /Released to \S+\s*\d+\.\d{2} USDC/.test(mo.text("claim-result").replace(/\s+/g, " "))
+    && mo.text("claim-result").replace(/\s+/g, " ").includes((v.settled.released / 1e6).toFixed(2) + " USDC");
+  check(settledNote(moNadV) && /Back to you\s*0\.00 USDC/.test(mo.text("claim-result")),
+    "ORDERS a settled order: the timeline says how it was settled (no holding date); the result shows both amounts, 0.00 included");
 
   await mo.go("#/orders/" + moLate.order);
   check(mo.attr("claim-type-late", "aria-disabled") === "false", "ORDERS with the delivery email verified, It arrived late can be chosen");
@@ -783,6 +788,7 @@ async function run(url, stubPort, keys) {
   const tlTx = tlRows.map((r) => r.querySelector("[data-f-tx]")?.getAttribute("href") || "").filter((h) => h && h !== "#");
   const tlText = tlRows.map((r) => r.querySelector('[data-f="what"]')?.textContent || "");
   const lateEv = (await core.orderView(moLate.order, await t())).events;
+  check(settledNote(moLateV), "ORDERS a settled refund: the timeline says how it was settled; Back to you and Released to the store, each with its amount");
   check(tlTx.length === new Set(tlTx).size && lateEv.filter((e) => e.tx).length > tlTx.length
     && tlText.includes("Settled on Arc") && !tlText.includes("Verdict executed") && tlText.includes("Verdict proposed on Arc") && !tlText.includes("Verdict proposed"),
     `ORDERS the timeline has one line per transaction, its last state (${tlTx.length} transactions of ${lateEv.filter((e) => e.tx).length} events with one)`);
@@ -986,9 +992,17 @@ async function run(url, stubPort, keys) {
     && mc.attr("sign-response", "data-sign-state") === "disabled" && mc.attr("f-response", "maxlength") === String(cfg.limits.panel_chars),
     "MERCHANTS C a claim to answer: what the buyer wrote, the window's countdown, Tenet's length limit; nothing to sign before writing");
   const cNev = (await core.orderView(cN, await t())).events.slice(-6), links = [...mc.doc.querySelectorAll("#order-timeline .event__tx")].map((a) => a.getAttribute("href"));
+  // Bradbury transactions from before GenLayer's reset (site/tenet.js, ARCHIVED_BEFORE) open their archived record, marked so
+  const glHref = (e) => (e.at < Date.UTC(2026, 9, 28) / 1000 ? "https://github.com/randyparrs/tenet-pay/blob/main/data/bradbury-archive.jsonl"
+    : "https://scan.bradbury.genlayer.com/tx/" + e.tx);
   check(links.length === cNev.length && cNev.some((e) => e.tx) && cNev.every((e, i) => !e.tx ? links[i] === null
-    : links[i] === (e.net === "arc" ? "https://explorer.testnet.arc.io/tx/" : "https://explorer-bradbury.genlayer.com/tx/") + e.tx),
-    "MERCHANTS C the order's timeline (last 6): each transaction opens its network's explorer (Arc, or Bradbury for the judge and Lacre)");
+    : links[i] === (e.net === "arc" ? "https://explorer.testnet.arc.io/tx/" + e.tx : glHref(e))),
+    "MERCHANTS C the order's timeline (last 6): each transaction opens its network's explorer (Arc, or Bradbury Phase 2 for the judge and Lacre)");
+  const sharedJs = readFileSync(P("site/tenet.js"), "utf8"), archive = readFileSync(P("data/bradbury-archive.jsonl"), "utf8").trim().split(/\r?\n/).map((l) => JSON.parse(l));
+  check(sharedJs.includes("ARCHIVED_BEFORE = Date.UTC(2026, 9, 28) / 1000") && sharedJs.includes('"https://github.com/randyparrs/tenet-pay/blob/main/data/bradbury-archive.jsonl"')
+    && /tag\.textContent = 'archived'/.test(readFileSync(P("merchants-site/app.js"), "utf8")) && /tag\.textContent = "archived"/.test(readFileSync(P("site/orders/orders.js"), "utf8"))
+    && archive.length > 0 && archive.every((r) => /^0x[0-9a-f]{64}$/.test(r.tx) && Date.parse(r.at) / 1000 < Date.UTC(2026, 9, 28) / 1000 && r.network === "bradbury-before-reset"),
+    `MERCHANTS C and ORDERS Bradbury transactions from before the reset open data/bradbury-archive.jsonl (${archive.length} rows, all before it), marked archived`);
   // The time column fits "Oct 23, 14:02" on one line (the design's 46 px split it in three; measured in a browser at 768 to
   // 1440 px), and on a phone it goes above the event. linkedom has no layout, so this checks the rules themselves.
   const merCss = readFileSync(P("merchants-site/styles.css"), "utf8");

@@ -12,6 +12,13 @@ export const ARC = { chainId: "0x4cef52", chainName: "Arc Testnet", nativeCurren
   rpcUrls: ["https://rpc.testnet.arc.io"], blockExplorerUrls: ["https://explorer.testnet.arc.io"] };
 export const CHAIN_ID = 5042002;
 export const txUrl = (h) => `${ARC.blockExplorerUrls[0]}/tx/${h}`;
+// GenLayer reset Bradbury in October 2026 (Phase 2, Consensus v0.6): its explorer no longer has the gateway's earlier
+// judge and Lacre transactions (the last one on 2026-10-23), so they open their record in the repository, marked
+// "archived", as on Tenet's page. Later ones open Bradbury Phase 2's explorer.
+export const BRADBURY_ARCHIVE = "https://github.com/randyparrs/tenet-pay/blob/main/data/bradbury-archive.jsonl";
+export const ARCHIVED_BEFORE = Date.UTC(2026, 9, 28) / 1000;
+export const glTx = (h, at) => (Number(at) < ARCHIVED_BEFORE ? { href: BRADBURY_ARCHIVE, archived: true }
+  : { href: `https://scan.bradbury.genlayer.com/tx/${h}`, archived: false });
 export const SEL = { approve: "095ea7b3", allowance: "dd62ed3e", pay: "919aeb18", openClaim: "f0dd1fe5", submit: "3d5376fa", withdraw: "51cff8d9",
   claimable: "d4570c1c", merchantTermsHash: "e16eba66", merchantRefund: "40b81e11" };
 

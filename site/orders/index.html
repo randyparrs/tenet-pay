@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600&amp;family=Geist+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261023b">
+<link rel="stylesheet" href="styles.css?v=20261029a">
 </head>
 <body>
 <!--
@@ -343,7 +343,7 @@
           <section class="card card--pad stack-16" id="timeline-card">
             <div class="card-head">
               <span class="card-head__icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg></span>
-              <div class="card-head__text"><span class="card-head__title">Timeline</span><span class="card-head__sub">In escrow on Arc. Released to the store: <span data-field="order.releaseAt"></span>.</span></div>
+              <div class="card-head__text"><span class="card-head__title">Timeline</span><span class="card-head__sub" data-field="order.timelineNote"></span></div>
             </div>
             <div class="timeline" id="timeline" data-list="order.events"></div>
           </section>
@@ -539,6 +539,6 @@
 </template>
 
 <script src="../circle.js?v=20261027b"></script>
-<script type="module" src="orders.js?v=20261028a"></script>
+<script type="module" src="orders.js?v=20261029a"></script>
 </body>
 </html>

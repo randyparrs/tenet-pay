@@ -17,7 +17,7 @@
  *   nostore, txt, txtfail, policy, drafting, draft, test, testfail,
  *   key, key_pending, judges, escrow, failed, active
  */
-import { ARC, CHAIN_ID, SEL, get, post, call, word, withBytes, cj, wallet, sendTx, waitReceipt, cancelled, utf8Hex, renderTerms, termsHash, escrowTermsHash, shortAddr, when, txUrl } from "./tenet.js";
+import { ARC, CHAIN_ID, SEL, get, post, call, word, withBytes, cj, wallet, sendTx, waitReceipt, cancelled, utf8Hex, renderTerms, termsHash, escrowTermsHash, shortAddr, when, txUrl, glTx } from "./tenet.js";
 
 var CONFIG = {
   delays: { copyReset: 1500, afterConfirm: 1400 },
@@ -41,7 +41,8 @@ var CLAIM_NAME = { late: 'late', not_as_described: 'not as described', not_deliv
 var PROOF_NAME = { label: 'label', model_number: 'model number', serial_number: 'serial number' };
 var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 // Arc transactions open Arc's explorer; the judge's and Lacre's (GenLayer) open Bradbury's.
-function txHref(hash, net) { return net && net !== 'arc' ? 'https://explorer-bradbury.genlayer.com/tx/' + hash : txUrl(hash); }
+// Arc transactions open Arc's explorer; the judge's and Lacre's (GenLayer) open Bradbury's, or their archived record.
+function txLink(hash, net, at) { return net && net !== 'arc' ? glTx(hash, at) : { href: txUrl(hash), archived: false }; }
 
 /* ---------- Data and chain layer ---------- */
 var Api = {
@@ -172,7 +173,8 @@ function toOrder(o, x) {
   var out = { id: o.order, label: o.unexpected && /^unknown-/.test(o.order) ? shortTx(o.ref) : o.order, raw: o,
     amount: usdc(o.amount_cents * 1e4), paidAt: o.paid_at ? day(o.paid_at) : 'Not paid', action: 'none', tone: 'green', statusLabel: 'Paid',
     events: (o.events || []).map(function (e) {
-      return { time: day(e.at), what: e.what, tx: e.tx ? shortTx(e.tx) : '', href: e.tx ? txHref(e.tx, e.net) : '',
+      var link = e.tx ? txLink(e.tx, e.net, e.at) : { href: '', archived: false };
+      return { time: day(e.at), what: e.what, tx: e.tx ? shortTx(e.tx) : '', href: link.href, archived: link.archived,
         tone: /settled|attested|final: refund/i.test(e.what) ? 'ok' : /unexpected|ignored|unreadable|not provided|over 12 KB/i.test(e.what) ? 'bad' : 'neutral' };
     }) };
   if (!o.paid) { out.action = 'unpaid'; out.tone = 'neutral'; out.statusLabel = 'Not paid'; out.waitText = 'Not paid yet. Tenet notifies your webhook when the buyer pays.'; return out; }
@@ -648,6 +650,13 @@ function renderOrders() {
     var tx = $('.event__tx', ev);
     tx.textContent = e.tx || '';
     if (e.href) tx.setAttribute('href', e.href); else tx.removeAttribute('href');
+    if (e.archived) {
+      tx.setAttribute('title', 'Archived: the record of this transaction in the repository');
+      var tag = document.createElement('span');
+      tag.className = 'archived-tag';
+      tag.textContent = 'archived';
+      tx.appendChild(tag);
+    }
     tl.appendChild(ev);
   });
 }
