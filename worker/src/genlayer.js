@@ -1,24 +1,40 @@
-// GenLayer Bradbury adapter of the gateway Worker (genlayer-js 1.2.0), after the demo Worker's worker/src/genlayer.js.
-// The gateway key owns the two gateway judges and sends only to them, to Lacre's Verifier and to Lacre's
-// KeyCache (register_key and confirm_key are open to anyone; the Worker pays them for each store). Gas is
-// three times the node's estimate, capped at the per-transaction limit, as Lacre's tools/chain.py does.
+// GenLayer Bradbury Phase 2 adapter of the gateway Worker (genlayer-js 2.0.0-rc.2), the same calls as Tenet's
+// tools/gl2.mjs. The gateway key owns the gateway judges and sends only to them, to Lacre's Verifier and to Lacre's
+// KeyCache (register_key and confirm_key are open to anyone; the Worker pays them for each store). Each send estimates
+// its fee deposit (returned at finalization) and stops above 10 GEN. Sends and transaction reads go to the SDK's chain
+// RPC; contract reads go to the GenLayer node. Lacre is not on Phase 2 yet: its calls fail, and glSend records the error.
 import { createClient, createAccount } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
 
-const CAP = 16_777_216n;
+const NODE = "https://rpc-bradbury.genlayer.com";
+const MAX_FEE = 10n * 10n ** 18n;
 const DONE = new Set(["FINALIZED", "CANCELED"]);
 const plain = (x) => (x instanceof Map ? Object.fromEntries([...x].map(([k, v]) => [k, String(v)])) : x || {});
 
+/** The public RPC refuses eth_call from the zero address, so a GenLayer eth_call without "from" goes from the gateway's. */
+export function withFrom(realFetch, address) {
+  return async (url, init) => {
+    if (/genlayer\.com/.test(String(url)) && init && typeof init.body === "string" && init.body.includes('"eth_call"')) {
+      const b = JSON.parse(init.body);
+      for (const r of Array.isArray(b) ? b : [b]) if (r.method === "eth_call" && r.params?.[0] && !r.params[0].from) r.params[0].from = address;
+      init = { ...init, body: JSON.stringify(b) };
+    }
+    return realFetch(url, init);
+  };
+}
+
 export function makeGl({ key, judges, router }) {
-  const base = createAccount(key);
-  const account = { ...base, signTransaction: (tx, o) => {
-    const g = BigInt(tx.gas ?? 0n) * 3n;
-    return base.signTransaction({ ...tx, gas: g > CAP ? CAP : g }, o);
-  } };
+  const account = createAccount(key);
+  globalThis.fetch = withFrom(globalThis.fetch.bind(globalThis), account.address);
   const client = createClient({ chain: testnetBradbury, account });
-  const read = (address, functionName, args, final) => client.readContract({ address, functionName, args,
+  const node = createClient({ chain: testnetBradbury, account, endpoint: NODE });
+  const read = (address, functionName, args, final) => node.readContract({ address, functionName, args,
     transactionHashVariant: final ? "latest-final" : "latest-nonfinal" });
-  const write = (address, functionName, args, value = 0n) => client.writeContract({ address, functionName, args, value });
+  const write = async (address, functionName, args, value = 0n) => {
+    const fees = await client.estimateTransactionFees({ appealRounds: 0 });
+    if (BigInt(fees.feeValue) > MAX_FEE) throw new Error(`fee deposit ${fees.feeValue} wei is above 10 GEN: nothing sent`);
+    return client.writeContract({ address, functionName, args, value, fees });
+  };
   let verifier = null, keycache = null, fee = null;
   const seen = new Map();
 
@@ -37,7 +53,7 @@ export function makeGl({ key, judges, router }) {
   };
 
   return {
-    address: base.address,
+    address: account.address,
     sendJudge: (kind, claim, step) => write(judge(kind), "judge", [claim, step]),
     setMerchant: (kind, merchant, terms) => write(judge(kind), "set_merchant", [merchant, terms]),
     async getMerchant(kind, merchant, termsHash, final) {
@@ -67,7 +83,7 @@ export function makeGl({ key, judges, router }) {
     async findRecord(bh, final = true) {
       const v = await lacre();
       for (const [rid, b] of seen) if (b === bh) return rid;
-      const ids = (await read(v, "records_of", [base.address], final)) || [];
+      const ids = (await read(v, "records_of", [account.address], final)) || [];
       for (const id of ids) {
         const rid = String(id);
         if (seen.has(rid)) continue;

@@ -1,7 +1,7 @@
 {
  "contracts/judge_mail_gw.py": {
   "built_from": {
-   "contracts/build_judge_gw.py": "09be01732f614ba7267cf10327dc3ad96f0ebab391ed596c35bc4d0f36ebcf5d",
+   "contracts/build_judge_gw.py": "5f919f0093036b2a8596f4f98e81ad28c122c93b34f050d77319ca20e117c8fa",
    "tenet/arbiter/mail_llm.py": "23daf48e9e5b4bf3d034ed82109165416c113fcf9518d70c967b772ff5b8bd40",
    "tenet/arbiter/mail_llm_v2.py": "396099612bb80508c067421e71c5dd8c32a990cddfccd8e5ed91f43203a71682",
    "tenet/arbiter/mail_llm_v3.py": "af78b33e37f38e84613086e5fe7b147d74975d85995b4a7cd6eb2517ae83110f",
@@ -13,7 +13,7 @@
  },
  "contracts/judge_subjective_gw.py": {
   "built_from": {
-   "contracts/build_judge_gw.py": "09be01732f614ba7267cf10327dc3ad96f0ebab391ed596c35bc4d0f36ebcf5d",
+   "contracts/build_judge_gw.py": "5f919f0093036b2a8596f4f98e81ad28c122c93b34f050d77319ca20e117c8fa",
    "tenet/arbiter/not_delivered.py": "d6ec1c129806f72a215a15575dcb3eb5a9b27d1e0ac2b3529a65692dc35c556c",
    "tenet/arbiter/subjective.py": "b5f261c819134088c3f401e6f2b8da32baf47ba7d1beb8ba400ed1e9552f4397",
    "tenet/arbiter/subjective_v3.py": "96740ef5bebdecea0903754992f2866edc2ed1e97847f365609897ee41cceeec",
@@ -22,5 +22,12 @@
   },
   "bytes": 17279,
   "sha256": "fac23c1529fcfd61e0ae4f42bbf94c40de57c6a767fa89ad963c29ea25e1174f"
+ },
+ "contracts/judge_subjective_gw_p2.py": {
+  "built_from": {
+   "contracts/judge_subjective_gw.py": "fac23c1529fcfd61e0ae4f42bbf94c40de57c6a767fa89ad963c29ea25e1174f"
+  },
+  "bytes": 17369,
+  "sha256": "fbe685c7653d105f88601dff1d478d0ed2ef845d21e248bdbc0e52929c62e08d"
  }
 }

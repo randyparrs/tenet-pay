@@ -13,7 +13,7 @@ Expected differences, by design, and how the run takes them:
 - CM-D6: each email keeps its promised date (pr) and delivery date (dl) instead of one date: B0 checks the
   labeled date in the field of its label.
 
-Usage: LACRE_DIR=<lacre clone> py -3.12 tests/judge_gw_regression.py [--out results/judge-gw-regression.txt]
+Usage: LACRE_DIR=<lacre clone> py -3.12 tests/judge_gw_regression.py [--p2] [--out results/judge-gw-regression.txt]
 """
 import collections
 import json
@@ -110,8 +110,10 @@ def b0_tests():
 
 def setup():
     # Through Tenet's folder (tenet/../contracts): the same files, written by Tenet's harness relative to its root.
+    # --p2 (read by Tenet's harness too): the subjective judge built for Bradbury Phase 2, v0.6 std lib names.
+    subjective = "judge_subjective_gw_p2.py" if base.P2 else "judge_subjective_gw.py"
     base.CONTRACTS.update({"mail": base.ROOT / ".." / "contracts" / "judge_mail_gw.py",
-                           "subjective": base.ROOT / ".." / "contracts" / "judge_subjective_gw.py"})
+                           "subjective": base.ROOT / ".." / "contracts" / subjective})
     base.MAIL["profile"].update(GW_PROFILE)
     for line in (ROOT / "contracts" / "ERRORS-gw.md").read_text(encoding="utf-8").splitlines():
         cells = [x.strip() for x in line.strip().strip("|").split("|")]

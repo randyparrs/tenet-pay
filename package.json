@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Tenet Pay: the gateway Worker, its pages, TechShopping and their rehearsal.",
   "dependencies": {
-    "genlayer-js": "1.2.0",
+    "genlayer-js": "2.0.0-rc.2",
     "viem": "2.55.4"
   },
   "devDependencies": {
