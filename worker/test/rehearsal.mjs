@@ -991,6 +991,9 @@ async function run(url, stubPort, keys) {
   check(mc.shown("action-respond") && quote.includes("The charger in the box is a 20 W one") && quote.includes("Promised: 65 W") && /left$/.test(mc.doc.querySelector("[data-countdown]").textContent)
     && mc.attr("sign-response", "data-sign-state") === "disabled" && mc.attr("f-response", "maxlength") === String(cfg.limits.panel_chars),
     "MERCHANTS C a claim to answer: what the buyer wrote, the window's countdown, Tenet's length limit; nothing to sign before writing");
+  const rowLeft = mc.doc.querySelector("#order-row-" + cN + " .orders-row__cd"), otherLeft = mc.doc.querySelector("#order-row-" + cU + " .orders-row__cd");
+  check(!!rowLeft && !rowLeft.hasAttribute("hidden") && /^\d+:\d{2} left$/.test(rowLeft.textContent) && !!otherLeft && otherLeft.hasAttribute("hidden"),
+    "MERCHANTS C a claim waiting for the store shows its time left in the orders list too; an order with nothing due does not");
   const cNev = (await core.orderView(cN, await t())).events.slice(-6), links = [...mc.doc.querySelectorAll("#order-timeline .event__tx")].map((a) => a.getAttribute("href"));
   // Bradbury transactions from before GenLayer's reset (site/tenet.js, ARCHIVED_BEFORE) open their archived record, marked so
   const glHref = (e) => (e.at < Date.UTC(2026, 9, 28) / 1000 ? "https://github.com/randyparrs/tenet-pay/blob/main/data/bradbury-archive.jsonl"

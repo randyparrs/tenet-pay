@@ -391,6 +391,10 @@ input[type=number]::-webkit-inner-spin-button { opacity: 0.3; }
 .quote__label { font-size: 11.5px; color: var(--text-4); }
 .quote__text { font-size: 13px; line-height: 1.55; color: var(--text-2); text-wrap: pretty; }
 .countdown { display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px; border-radius: var(--radius-pill); font-weight: 500; font-size: 12px; background: var(--tone-amber-bg); color: var(--amber-light); }
+/* The window is short for a person: the time left reads at a glance in the answer box and in the list. */
+#action-respond .countdown { height: 34px; padding: 0 14px; font-size: 16px; }
+.orders-row__status { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.orders-row__cd[hidden] { display: none; }
 .countdown[data-cd="low"] { background: var(--tone-red-bg); color: var(--red-light); }
 .countdown[data-cd="closed"] { background: rgba(242, 120, 107, 0.1); color: var(--red-light); }
 .countdown[data-cd="answered"] { background: var(--tone-green-bg); color: var(--mint); }

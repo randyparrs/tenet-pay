@@ -625,6 +625,13 @@ function renderOrders() {
     chip.textContent = o.statusLabel;
     chip.setAttribute('data-tone', o.tone);
     $('.orders-row__paid', row).textContent = o.paidAt;
+    // A claim waiting for the store: its time left shows in the list too, not only inside the order.
+    var left = $('.orders-row__cd', row), due = orderNeedsYou(o) && o.windowSecondsLeft > 0 ? countdownFor(o) : null;
+    if (due && !due.closed) {
+      left.hidden = false;
+      left.textContent = due.label;
+      left.setAttribute('data-cd', due.tone);
+    }
     list.appendChild(row);
   });
   if (!sel) return;
