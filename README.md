@@ -28,11 +28,11 @@ windows are 5 minutes, so a whole claim fits in one visit.
 | Contract | Network | Address | Deployed |
 |---|---|---|---|
 | Escrow (Tenet's `evm/demo/RefundEscrow.sol`, 5 minute windows) | Arc Testnet (chain 5042002) | [`0x17FBCDF5c1780DfE29dcE5aFf2E3D3921d393798`](https://explorer.testnet.arc.io/address/0x17FBCDF5c1780DfE29dcE5aFf2E3D3921d393798) | [tx](https://explorer.testnet.arc.io/tx/0x3c731bae01b5e098488789271d5ca08086be55ed609c7f79f542ae5c32b75c79), block 68349809 |
-| Email judge (`contracts/judge_mail_gw.py`) | GenLayer Bradbury | `0x87B67B8496be2481d51353cd552DFB26698af346` | [tx](https://explorer-bradbury.genlayer.com/tx/0xac29ceb444d7163dc937224dec66f4280bba06af078f6731c37a1da1b5b0f0e7) |
-| Subjective judge (`contracts/judge_subjective_gw.py`) | GenLayer Bradbury | `0x766F9d7f98675E5fa7e1B7DE832b66ceE8286936` | [tx](https://explorer-bradbury.genlayer.com/tx/0x1c24959dba61a02a034834eb59c5a998c6b990b7544990d95465f65ff2c9dec7) |
+| Email judge (`contracts/judge_mail_gw.py`) | Waits for Lacre on Bradbury Phase 2 | Not deployed on Phase 2 | Before the reset: `0x87B67B8496be2481d51353cd552DFB26698af346` |
+| Subjective judge (`contracts/judge_subjective_gw_p2.py`) | GenLayer Bradbury Phase 2 | [`0xAe753BaE3c7525b90BdA8D177eE71A547F17d17a`](https://scan.bradbury.genlayer.com/address/0xAe753BaE3c7525b90BdA8D177eE71A547F17d17a) | [tx](https://scan.bradbury.genlayer.com/tx/0xab291c59de071a2f7147efa035d11ccebb20a5ea447361266c706737065f4716) |
 
-USDC on Arc Testnet: `0x3600000000000000000000000000000000000000`. The store emails are attested with Lacre's deployed
-contracts on Bradbury. TechShopping's registered terms hash is
+USDC on Arc Testnet: `0x3600000000000000000000000000000000000000`. GenLayer reset Bradbury in October 2026. Until Lacre is on Phase 2, store emails
+are not attested, so late delivery claims and new store registrations wait for it. TechShopping's registered terms hash is
 `0xab9996d0149a7f43943d340749a4036b7ef5440547e53fca7c40abec650a98e9` (30 day hold).
 
 ## What is in this repository
