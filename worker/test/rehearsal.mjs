@@ -1139,12 +1139,18 @@ async function run(url, stubPort, keys) {
   const homeLinks = [...homeHtml.matchAll(/<a [^>]*href="([^"]+)"/g)].map((m) => m[1]);
   const HOME_LINKS = ["#top", "#products", "https://github.com/randyparrs/Tenet", "https://youtu.be/z4cT_LdlxKg", "https://techshopping.site",
     "https://tenet.rpmdev.app/#live-cases", "https://tenet.rpmdev.app/#how-it-works", "https://tenet.rpmdev.app/#demo-shop", "https://paytenet.site/orders/",
-    "https://paytenet.site/how/", "https://merchants.paytenet.site", "https://github.com/randyparrs/tenet-pay", "https://lacre.in-sidr.xyz"];
+    "https://paytenet.site/how/", "https://merchants.paytenet.site", "https://github.com/randyparrs/tenet-pay", "https://lacre.in-sidr.xyz",
+    "https://orvyn.paytenet.site", "https://github.com/randyparrs/orvyn"];
   const homeFiles = [...homeHtml.matchAll(/(?:href|src)="((?:home\.(?:css|js)|favicon\.svg)[^"]*)"/g)].map((m) => m[1].split("?")[0]);
   check(homeLinks.every((h) => HOME_LINKS.includes(h)) && HOME_LINKS.every((h) => homeLinks.includes(h)) && homeFiles.join() === "favicon.svg,home.css,home.js"
     && homeFiles.every((f) => existsSync(P("site/" + f))) && !/[–—]/.test(homeHtml + readFileSync(P("site/home.js"), "utf8") + readFileSync(P("site/home.css"), "utf8"))
     && /<h1[^>]*>Buyer protection for stablecoin payments\.<\/h1>/.test(homeHtml),
-    "HOME links: Products, both repositories, the video, TechShopping, Tenet's live cases, How it works and Demo Shop, My orders, How it works, For stores, Lacre; its own files are home.css, home.js and the favicon");
+    "HOME links: Products, both repositories, the video, TechShopping, Tenet's live cases, How it works and Demo Shop, My orders, How it works, For stores, Lacre, Orvyn's page and repository; its own files are home.css, home.js and the favicon");
+  const tileIds = [...homeHtml.matchAll(/<article class="tile[^"]*" id="tile-([a-z-]+)"/g)].map((m) => m[1]);
+  check(tileIds.join() === "tenet,tenet-pay,techshopping,orvyn" && homeHtml.includes(">One protocol, four ways to see it</h2>")
+    && homeHtml.includes('<h3 class="tile__name">Orvyn</h3>') && homeHtml.includes('<p class="tile__line">Buyer protection for AI agents that buy.</p>')
+    && /@media \(min-width: 1140px\) \{ \.tiles \{ grid-template-columns: repeat\(4, 1fr\); \} \}/.test(readFileSync(P("site/home.css"), "utf8")),
+    "HOME products: four tiles, Tenet, Tenet Pay, TechShopping and Orvyn (its page and repository), four in a row on a wide screen and two by two below");
   check(/<p class="hero__eyebrow" id="hero-eyebrow"[^>]*>RULES DETERMINE OUTCOMES\.<\/p>\s*<h1 /.test(homeHtml)
     && homeHtml.includes('id="hero-lede">The payment waits in escrow on Arc. If something goes wrong, a judge on GenLayer decides.</span>')
     && !homeHtml.includes("hero__lede-rule") && /\.hero__eyebrow \{[^}]*font-family: var\(--font-mono\);[^}]*color: var\(--color-green\);/.test(readFileSync(P("site/home.css"), "utf8")),
