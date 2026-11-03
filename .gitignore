@@ -5,6 +5,7 @@
 !/.gitmodules
 !/.github/
 !/README.md
+!/ROADMAP.md
 !/LICENSE
 !/NOTICE.md
 !/local.env.example

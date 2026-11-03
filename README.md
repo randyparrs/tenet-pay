@@ -7,6 +7,8 @@ signed emails (verified on Lacre) and the refund terms the store registered.
 Tenet Pay is the gateway built on [Tenet](https://github.com/randyparrs/Tenet): the same escrow contract and judge
 templates, now open to any store that registers. Tenet is included as a git submodule (`tenet/`) at a fixed commit.
 
+What is done and what comes next: [ROADMAP.md](ROADMAP.md).
+
 ## Live on testnet
 
 | What | Where |
