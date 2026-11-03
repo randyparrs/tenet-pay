@@ -240,12 +240,15 @@ button { font: inherit; }
 .flow__node--release .flow__pill { right: -8px; top: 12px; }
 
 /* Product tiles */
+/* Equal columns that never grow with their content; every tile fills its cell, so a row's tiles share one size */
 .tiles {
-  display: grid; grid-template-columns: 1fr;
-  gap: 14px; align-items: start;
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: 14px; align-items: stretch;
 }
-@media (min-width: 640px) { .tiles { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 1140px) { .tiles { grid-template-columns: repeat(4, 1fr); } }
+@media (min-width: 640px) { .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (min-width: 1140px) { .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.tiles > * { display: flex; }
+.tiles > * > .tile { flex: 1; min-width: 0; }
 .tile {
   --tile-bg: var(--color-green-deep);
   --tile-ink: var(--color-green-deep-text);
@@ -254,7 +257,7 @@ button { font: inherit; }
   --tile-btn-line: rgba(255, 255, 255, 0.25);
   --tile-link-hover: var(--color-green);
   --tile-glow: rgba(95, 216, 150, 0.35);
-  cursor: pointer; display: flex; flex-direction: column; min-height: 440px; padding: 28px;
+  cursor: pointer; display: flex; flex-direction: column; min-height: 440px; padding: 28px; container-type: inline-size;
   border-radius: 4px; background: var(--tile-bg); color: var(--tile-ink);
   transition: transform 0.45s var(--ease-out), box-shadow 0.45s;
 }
@@ -277,6 +280,16 @@ button { font: inherit; }
   --tile-link-hover: var(--color-green-store);
   --tile-glow: rgba(255, 255, 255, 0.25);
 }
+.tile--navy {
+  --tile-bg: #0b1a33;
+  --tile-ink: #eef2f8;
+  --tile-muted: #d3dcea;
+  --tile-line: rgba(255, 255, 255, 0.14);
+  --tile-btn-line: rgba(91, 149, 255, 0.55);
+  --tile-link-hover: #5b95ff;
+  --tile-glow: rgba(91, 149, 255, 0.35);
+}
+.tile--navy .tile__toggle { color: #5b95ff; }
 .tile__head { display: flex; justify-content: space-between; align-items: flex-start; }
 .tile__glyph { width: 72px; height: 72px; flex: none; }
 .tile__toggle {
@@ -287,7 +300,7 @@ button { font: inherit; }
 .tile__toggle svg { transition: transform 0.35s; }
 .tile[data-open="true"] .tile__toggle svg { transform: rotate(45deg); }
 .tile__spacer { flex: 1; min-height: 40px; }
-.tile__name { margin: 0; font-size: clamp(34px, 3.4vw, 44px); font-weight: 300; letter-spacing: -0.03em; }
+.tile__name { margin: 0; font-size: min(clamp(34px, 3.4vw, 44px), 13.5cqi); font-weight: 300; letter-spacing: -0.03em; white-space: nowrap; }
 .tile__line { margin: 10px 0 0; font-size: 16px; line-height: 1.5; color: var(--tile-muted); max-width: 30ch; }
 .tile__links { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.45s var(--ease-out); }
 .tile[data-open="true"] .tile__links { grid-template-rows: 1fr; }

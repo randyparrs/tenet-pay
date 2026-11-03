@@ -1147,10 +1147,18 @@ async function run(url, stubPort, keys) {
     && /<h1[^>]*>Buyer protection for stablecoin payments\.<\/h1>/.test(homeHtml),
     "HOME links: Products, both repositories, the video, TechShopping, Tenet's live cases, How it works and Demo Shop, My orders, How it works, For stores, Lacre, Orvyn's page and repository; its own files are home.css, home.js and the favicon");
   const tileIds = [...homeHtml.matchAll(/<article class="tile[^"]*" id="tile-([a-z-]+)"/g)].map((m) => m[1]);
+  const homeCss = readFileSync(P("site/home.css"), "utf8");
   check(tileIds.join() === "tenet,tenet-pay,techshopping,orvyn" && homeHtml.includes(">One protocol, four ways to see it</h2>")
     && homeHtml.includes('<h3 class="tile__name">Orvyn</h3>') && homeHtml.includes('<p class="tile__line">Buyer protection for AI agents that buy.</p>')
-    && /@media \(min-width: 1140px\) \{ \.tiles \{ grid-template-columns: repeat\(4, 1fr\); \} \}/.test(readFileSync(P("site/home.css"), "utf8")),
-    "HOME products: four tiles, Tenet, Tenet Pay, TechShopping and Orvyn (its page and repository), four in a row on a wide screen and two by two below");
+    && /@media \(min-width: 640px\) \{ \.tiles \{ grid-template-columns: repeat\(2, minmax\(0, 1fr\)\); \} \}/.test(homeCss)
+    && /@media \(min-width: 1140px\) \{ \.tiles \{ grid-template-columns: repeat\(4, minmax\(0, 1fr\)\); \} \}/.test(homeCss)
+    && /\.tiles \{[^}]*grid-template-columns: minmax\(0, 1fr\);[^}]*align-items: stretch;/.test(homeCss) && /\.tiles > \* > \.tile \{ flex: 1; min-width: 0; \}/.test(homeCss)
+    && /\.tile \{[^}]*container-type: inline-size;/.test(homeCss) && /\.tile__name \{[^}]*font-size: min\(clamp\(34px, 3\.4vw, 44px\), 13\.5cqi\);[^}]*white-space: nowrap;/.test(homeCss),
+    "HOME products: four tiles, Tenet, Tenet Pay, TechShopping and Orvyn (its page and repository); equal columns that do not grow with a long name (four in a row on a wide screen, two by two below, one on a phone), every tile filling its cell, the name scaled to the tile's width");
+  const orvynTile = /<article class="tile tile--navy" id="tile-orvyn"[\s\S]*?<\/article>/.exec(homeHtml)?.[0] || "";
+  check(orvynTile && /\.tile--navy \{[^}]*--tile-bg: #0b1a33;[^}]*--tile-ink: #eef2f8;/.test(homeCss) && /\.tile--navy \.tile__toggle \{ color: #5b95ff; \}/.test(homeCss)
+    && /stroke="#5b95ff"/.test(orvynTile) && !/#5fd896/i.test(orvynTile),
+    "HOME Orvyn's tile in its own page's colors: navy, its blue accent on the icon and the + button, light text, none of Tenet's green");
   check(/<p class="hero__eyebrow" id="hero-eyebrow"[^>]*>RULES DETERMINE OUTCOMES\.<\/p>\s*<h1 /.test(homeHtml)
     && homeHtml.includes('id="hero-lede">The payment waits in escrow on Arc. If something goes wrong, a judge on GenLayer decides.</span>')
     && !homeHtml.includes("hero__lede-rule") && /\.hero__eyebrow \{[^}]*font-family: var\(--font-mono\);[^}]*color: var\(--color-green\);/.test(readFileSync(P("site/home.css"), "utf8")),
