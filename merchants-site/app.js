@@ -182,7 +182,9 @@ function toOrder(o, x) {
     out.action = 'settled'; out.tone = 'neutral'; out.statusLabel = 'Settled';
     out.refunded = usdc(o.settled.refund); out.released = usdc(o.settled.released);
     var final = (o.steps || []).map(function (st) { return st.final; }).filter(Boolean).pop();
+    var byStore = /^0x6d65726368616e74(00)+$/.test(String(o.settled.verdictRef || ''));
     out.result = o.unexpected ? 'Refunded in full: it matched no order' : !o.claim ? 'Hold ended, no claim'
+      : byStore ? sentence(claimWords) + ', refunded in full by the store'
       : sentence(claimWords) + ', ' + (o.settled.refund > 0 ? Math.round(o.settled.refund / (o.settled.refund + o.settled.released) * 100) + '% refund' : 'no refund') + (final && final.reason ? ' (' + final.reason + ')' : '');
     return out;
   }
@@ -216,6 +218,12 @@ function toOrder(o, x) {
     out.issueTitle = 'The judge could not read your store email';
     out.issueText = next.text;
     out.orderAddress = o.mail_to || '';
+  } else if (o.claim && !(o.events || []).some(function (e) { return /^Verdict proposed on Arc/.test(e.what); })) {
+    // An open claim with no verdict proposed on Arc: the store may close it by refunding in full (merchantRefund), optional.
+    out.action = 'refund'; out.claimRefund = true;
+    out.issueTitle = o.proof_requested_at ? 'The judge asked the buyer for proof' : 'The claim is with the judge';
+    out.issueText = 'Nothing to do now. If you prefer, refund the full ' + out.amount + ' USDC to ' + shortAddr(o.buyer) + ' and close this claim.';
+    out.refundAmount = out.amount; out.refundTo = shortAddr(o.buyer);
   } else if (o.claim) {
     out.action = 'wait';
     out.waitText = o.proof_requested_at ? 'The judge asked the buyer for proof. Nothing to do now.' : 'The claim is with the judge. Nothing to do now.';
@@ -291,6 +299,7 @@ var state = {
   review: { pre: '', excl: '', other: '' },
   creds: null,
   sign: {},
+  refundAsk: {}, // order id: the store clicked "Refund in full" on a claim once and is asked to confirm
   signTx: {},
   signHash: {},
   withdrawn: null,
@@ -408,7 +417,7 @@ function actionSignKey(order) {
   return null;
 }
 function orderNeedsYou(order) {
-  if (CONFIG.actionsThatNeedYou.indexOf(order.action) === -1) return false;
+  if (CONFIG.actionsThatNeedYou.indexOf(order.action) === -1 || order.claimRefund) return false;
   return state.sign[actionSignKey(order)] !== 'done';
 }
 function countdownFor(order) {
@@ -721,6 +730,13 @@ function renderSignButtons() {
     btn.setAttribute('data-sign-state', view);
     btn.disabled = view === 'disabled';
     btn.setAttribute('aria-busy', view === 'wallet' || view === 'reg' ? 'true' : 'false');
+    var sel = selectedOrder() || {};
+    if (base === 'refund' && sel.claimRefund && view === 'idle') {
+      var asked = !!state.refundAsk[sel.id];
+      label = asked ? 'Yes, refund in full' : label;
+      sub = asked ? 'Refund the full amount to the buyer and close this claim?' : 'Sends {refundAmount} USDC back to {refundTo} and closes the claim. Only gas.';
+      btn.setAttribute('data-sign-ask', asked ? 'true' : 'false');
+    } else btn.removeAttribute('data-sign-ask');
     $('.sign-btn__label', btn).textContent = fillTemplate(label, vars);
     var subEl = $('[data-sign-sub="' + base + '"]');
     if (subEl) { subEl.textContent = fillTemplate(sub, vars); subEl.setAttribute('data-sign-state', view); }
@@ -856,6 +872,10 @@ function runSign(btn) {
   var key = signKeyFor(btn);
   if (state.sign[key] || btn.getAttribute('data-sign-state') === 'disabled') return;
   if (base === 'withdraw') state.withdrawn = state.data.balance.claimable;
+  if (base === 'refund') {
+    var sel = selectedOrder() || {};
+    if (sel.claimRefund && !state.refundAsk[sel.id]) { state.refundAsk[sel.id] = true; render(); return; }
+  }
   if (base !== 'confirm') { signOrder(base, key); return; }
   state.sign[key] = 'wallet';
   state.regError = '';
@@ -1009,7 +1029,7 @@ function bindEvents() {
     syncWallet();
     // Without a wallet, or with another account, nothing of the previous store stays on screen.
     if (state.wallet !== 'connected' || addr !== wallet.address) {
-      state.data = toData(null); state.status = 'loading'; state.sign = {}; state.signTx = {}; state.creds = null;
+      state.data = toData(null); state.status = 'loading'; state.sign = {}; state.refundAsk = {}; state.signTx = {}; state.creds = null;
       state.structure = null; state.form = null; state.rules = []; state.review = { pre: '', excl: '', other: '' };
       state.regError = ''; state.policy = ''; state.domain = '';
     }

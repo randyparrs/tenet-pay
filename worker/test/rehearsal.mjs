@@ -1050,6 +1050,31 @@ async function run(url, stubPort, keys) {
   await mc.until(() => mc.T.state.data.orders.find((o) => o.id === ghostId)?.action === "settled");
   check((await core.orderView(ghostId, await t())).settled?.refund === 1_000_000 && mc.shown("action-settled") && mc.text("action-settled").includes("Refunded in full"),
     "MERCHANTS C Refund in full: merchantRefund from the store's wallet, then the order shows as settled");
+  // an open claim with no verdict proposed on Arc: the store may close it with a full refund, after a confirmation step
+  const cR = (await shop.buy("case", await t())).order;
+  await pay(B2, await core.checkout(cR));
+  await tick(2, 5);
+  await openClaim(B2, cR, "late", {});
+  await tick(2, 5);
+  await mc.disconnect();
+  await mc.connect(STORE);
+  await mc.until(() => mc.T.state.data.orders.find((o) => o.id === cR)?.raw.claim);
+  await mc.go("#/orders/" + cR);
+  check(mc.shown("action-refund") && mc.text("action-refund").includes("The claim is with the judge") && mc.text("action-refund").includes("close this claim")
+    && mc.attr("order-row-" + cR, "data-needs") !== "true" && mc.attr("sign-refund", "data-sign-state") === "idle",
+    "MERCHANTS C an open claim with no verdict proposed: Refund in full is offered, optional (the order is not marked as needing the store)");
+  const settledBefore = !!(await core.orderView(cR, await t())).settled;
+  await mc.click("sign-refund");
+  check(!settledBefore && mc.attr("sign-refund", "data-sign-ask") === "true" && mc.text("sign-refund").includes("Yes, refund in full")
+    && mc.text("action-refund").includes("Refund the full amount to the buyer and close this claim?") && !mc.T.state.sign["refund:" + cR],
+    "MERCHANTS C the first click asks: Refund the full amount to the buyer and close this claim? Nothing is signed yet");
+  await mc.click("sign-refund");
+  for (let i = 0; i < 40 && mc.attr("sign-refund", "data-sign-state") !== "done"; i++) { await tick(1, 3); await new Promise((r) => setTimeout(r, 150)); }
+  await mc.until(() => mc.T.state.data.orders.find((o) => o.id === cR)?.action === "settled");
+  const cRv = await core.orderView(cR, await t());
+  check(cRv.settled?.refund === cRv.amount_cents * 1e4 && cRv.settled?.released === 0 && /^0x6d65726368616e74(00)+$/.test(cRv.settled?.verdictRef || "")
+    && mc.text("action-settled").includes("refunded in full by the store"),
+    "MERCHANTS C the second click signs merchantRefund: all to the buyer, 0 to the store, reason merchant, and the order shows it");
   await mc.go("#/orders/" + g4);
   check(mc.shown("action-settled") && /no refund/.test(mc.text("action-settled")) && mc.text("action-settled").includes("2.00 USDC"),
     "MERCHANTS C a settled claim: the result and how much went to each side");
