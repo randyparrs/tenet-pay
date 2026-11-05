@@ -14,7 +14,7 @@ What Tenet Pay does today, on testnet, and what comes next.
 - **Real DKIM signed emails** from the store to a Tenet address for each order.
 - **HTML email reading.**
 - **Versioned terms.**
-- **Judges on Bradbury Phase 2:** the subjective judge is deployed; the email judge waits for Lacre on Phase 2.
+- **Judges on Bradbury Phase 2:** both are deployed; the email judge reads Lacre on Phase 2 (fork randyparrs/lacre).
 
 ## Next
 

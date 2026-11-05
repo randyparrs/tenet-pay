@@ -30,11 +30,11 @@ windows are 5 minutes, so a whole claim fits in one visit.
 | Contract | Network | Address | Deployed |
 |---|---|---|---|
 | Escrow (Tenet's `evm/demo/RefundEscrow.sol`, 5 minute windows) | Arc Testnet (chain 5042002) | [`0x17FBCDF5c1780DfE29dcE5aFf2E3D3921d393798`](https://explorer.testnet.arc.io/address/0x17FBCDF5c1780DfE29dcE5aFf2E3D3921d393798) | [tx](https://explorer.testnet.arc.io/tx/0x3c731bae01b5e098488789271d5ca08086be55ed609c7f79f542ae5c32b75c79), block 68349809 |
-| Email judge (`contracts/judge_mail_gw.py`) | Waits for Lacre on Bradbury Phase 2 | Not deployed on Phase 2 | Before the reset: `0x87B67B8496be2481d51353cd552DFB26698af346` |
+| Email judge (`contracts/judge_mail_gw_p2.py`) | GenLayer Bradbury Phase 2 | [`0x0617C48b4Eb2AeA1862A6cb09FB175b71Ad6DE19`](https://scan.bradbury.genlayer.com/address/0x0617C48b4Eb2AeA1862A6cb09FB175b71Ad6DE19) | [tx](https://scan.bradbury.genlayer.com/tx/0x513caa9a78bc344c8d186e2503c84d99b6e686fc3dea101cad23b635f5756379) |
 | Subjective judge (`contracts/judge_subjective_gw_p2.py`) | GenLayer Bradbury Phase 2 | [`0xAe753BaE3c7525b90BdA8D177eE71A547F17d17a`](https://scan.bradbury.genlayer.com/address/0xAe753BaE3c7525b90BdA8D177eE71A547F17d17a) | [tx](https://scan.bradbury.genlayer.com/tx/0xab291c59de071a2f7147efa035d11ccebb20a5ea447361266c706737065f4716) |
 
-USDC on Arc Testnet: `0x3600000000000000000000000000000000000000`. GenLayer reset Bradbury in October 2026. Until Lacre is on Phase 2, store emails
-are not attested, so late delivery claims and new store registrations wait for it. TechShopping's registered terms hash is
+USDC on Arc Testnet: `0x3600000000000000000000000000000000000000`. GenLayer reset Bradbury in October 2026. Store emails are attested on Lacre
+on Phase 2 through its Router `0xE7916BaFe7Aa624347Bf19e58AF0623F5182d74C` (fork randyparrs/lacre). TechShopping's registered terms hash is
 `0xab9996d0149a7f43943d340749a4036b7ef5440547e53fca7c40abec650a98e9` (30 day hold).
 
 ## What is in this repository

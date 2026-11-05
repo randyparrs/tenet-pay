@@ -52,7 +52,7 @@ jobs:
           node worker/test/f1.test.mjs
       - name: Gateway judges against the recorded committee answers
         run: python tenet/tools/lacre_boot.py tests/judge_gw_regression.py
-      - name: The same regression on the subjective judge built for Bradbury Phase 2
+      - name: The same regression on both judges built for Bradbury Phase 2
         run: python tenet/tools/lacre_boot.py tests/judge_gw_regression.py --p2
       - name: The GenLayer adapter's reads, without a network
         run: node worker/test/genlayer.test.mjs

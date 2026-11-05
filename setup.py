@@ -41,6 +41,11 @@ VERDICT_DELAY = 120
 GW = {"mail": ROOT / "contracts" / "judge_mail_gw.py", "subjective": ROOT / "contracts" / "judge_subjective_gw.py"}
 DATA = ROOT / "worker" / "src" / "gateway-data.json"
 BRADBURY_RPC, BRADBURY_ID = "https://rpc-bradbury.genlayer.com", 4221
+# Bradbury Phase 2 (GenLayer reset Bradbury in October 2026): Lacre's Router (fork randyparrs/lacre, 2026-11-04) and the
+# gateway judges deployed there with genlayer-js 2.0.0-rc.2. cmd_data writes these instead of the earlier judges; an
+# empty address keeps the earlier one until that judge is deployed on Phase 2.
+ROUTER_P2 = "0xE7916BaFe7Aa624347Bf19e58AF0623F5182d74C"
+JUDGES_P2 = {"mail": "0x0617C48b4Eb2AeA1862A6cb09FB175b71Ad6DE19", "subjective": "0xAe753BaE3c7525b90BdA8D177eE71A547F17d17a"}
 
 
 def judges():
@@ -169,8 +174,9 @@ def cmd_data():
     J = judges()
     st = E.state()
     d = json.loads(DATA.read_text(encoding="utf-8"))
-    d.update(escrow=st.get("escrow", ""), deploy_block=st.get("deploy_block", 0),
-             judges={k: (J.last(op="deploy", kind=k, state="final") or {}).get("address", "") for k in ("mail", "subjective")})
+    d.update(escrow=st.get("escrow", ""), deploy_block=st.get("deploy_block", 0), router=ROUTER_P2,
+             judges={k: JUDGES_P2[k] or (J.last(op="deploy", kind=k, state="final") or {}).get("address", "")
+                     for k in ("mail", "subjective")})
     DATA.write_text(json.dumps(d, indent=1) + "\n", encoding="utf-8")
     print("gateway-data.json: escrow %s (block %s), judges %s" % (d["escrow"], d["deploy_block"], d["judges"]))
 

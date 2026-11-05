@@ -27,8 +27,9 @@ Changes:
   dates are still missing, the late rule's refund is paid.
 
 Bradbury Phase 2 (Consensus v0.6): contracts/judge_subjective_gw_p2.py is judge_subjective_gw.py with the header and
-the std lib names of Tenet's build_p2 (build_judge_v2.P2_HEAD, P2_SWAPS), and nothing else. The email judge waits
-for Lacre on Phase 2.
+the std lib names of Tenet's build_p2 (build_judge_v2.P2_HEAD, P2_SWAPS), and nothing else. contracts/judge_mail_gw_p2.py
+is judge_mail_gw.py with the same, plus the names of its final-state reads of Lacre (build_judge_v2.P2_SWAPS_MAIL:
+StorageView.LATEST_FINALIZED and gl.contract.get_at).
 
 Usage: py -3.12 contracts/build_judge_gw.py           writes both judges and judge_build_gw.json
        py -3.12 contracts/build_judge_gw.py --check   builds them in memory and compares them with the files
@@ -327,19 +328,20 @@ def minify(body):
     return small
 
 
-def build_p2(built):
-    """The built subjective judge with Tenet's Phase 2 header and names (minify took the space out of the import)."""
+def build_p2(name, built):
+    """A built gateway judge with Tenet's Phase 2 header and names (minify took the space out of the import)."""
     first, rest = built.split("\n", 1)
     assert first.startswith('# { "Depends":')
     text = B.P2_HEAD + "\n" + rest
-    for old, new in B.P2_SWAPS:
+    for old, new in B.P2_SWAPS + (B.P2_SWAPS_MAIL if name == "judge_mail_gw" else ()):
         old = old.replace(" import *", " import*")
-        assert text.count(old) == 1, old
+        assert text.count(old) == 1, (name, old)
         text = text.replace(old, new)
     assert "message_raw" not in text and "gl.Contract)" not in text
-    compile(text, "judge_subjective_gw_p2", "exec")
+    assert "StorageType" not in text and "get_contract_at" not in text and "genlayer.py" not in text
+    compile(text, name + "_p2", "exec")
     text.encode("ascii")
-    return HERE / "judge_subjective_gw_p2.py", text
+    return HERE / (name + "_p2.py"), text
 
 
 def patch(text, changes, where):
@@ -385,11 +387,10 @@ if __name__ == "__main__":
             same = path.read_bytes() == text.encode("ascii")
             bad += not same
             print("same" if same else "DIFFERENT", path.relative_to(ROOT).as_posix(), hashlib.sha256(text.encode()).hexdigest())
-            if target == "judge_subjective_gw":
-                p2_path, p2_text = build_p2(text)
-                same = p2_path.read_bytes() == p2_text.encode("ascii")
-                bad += not same
-                print("same" if same else "DIFFERENT", p2_path.relative_to(ROOT).as_posix(), hashlib.sha256(p2_text.encode()).hexdigest())
+            p2_path, p2_text = build_p2(target, text)
+            same = p2_path.is_file() and p2_path.read_bytes() == p2_text.encode("ascii")
+            bad += not same
+            print("same" if same else "DIFFERENT", p2_path.relative_to(ROOT).as_posix(), hashlib.sha256(p2_text.encode()).hexdigest())
         sys.exit(1 if bad else 0)
     manifest = {}
     for target in TARGETS:
@@ -398,9 +399,7 @@ if __name__ == "__main__":
         sha = hashlib.sha256(text.encode()).hexdigest()
         manifest[path.relative_to(ROOT).as_posix()] = {"bytes": len(text.encode()), "sha256": sha, "built_from": prov}
         print(path.relative_to(ROOT).as_posix(), len(text.encode()), "bytes, sha256", sha)
-        if target != "judge_subjective_gw":
-            continue  # the email judge (Router, gl.get_contract_at) waits for Lacre on Phase 2
-        p2_path, p2_text = build_p2(text)
+        p2_path, p2_text = build_p2(target, text)
         p2_path.write_text(p2_text, encoding="ascii", newline="\n")
         p2_sha = hashlib.sha256(p2_text.encode()).hexdigest()
         manifest[p2_path.relative_to(ROOT).as_posix()] = {"bytes": len(p2_text.encode()), "sha256": p2_sha,

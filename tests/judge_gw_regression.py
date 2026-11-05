@@ -110,9 +110,10 @@ def b0_tests():
 
 def setup():
     # Through Tenet's folder (tenet/../contracts): the same files, written by Tenet's harness relative to its root.
-    # --p2 (read by Tenet's harness too): the subjective judge built for Bradbury Phase 2, v0.6 std lib names.
+    # --p2 (read by Tenet's harness too): the two judges built for Bradbury Phase 2, v0.6 std lib names.
     subjective = "judge_subjective_gw_p2.py" if base.P2 else "judge_subjective_gw.py"
-    base.CONTRACTS.update({"mail": base.ROOT / ".." / "contracts" / "judge_mail_gw.py",
+    mail = "judge_mail_gw_p2.py" if base.P2 else "judge_mail_gw.py"
+    base.CONTRACTS.update({"mail": base.ROOT / ".." / "contracts" / mail,
                            "subjective": base.ROOT / ".." / "contracts" / subjective})
     base.MAIL["profile"].update(GW_PROFILE)
     for line in (ROOT / "contracts" / "ERRORS-gw.md").read_text(encoding="utf-8").splitlines():
