@@ -70,7 +70,7 @@ const Api = {
     state.waiting = new Set(waiting.map((o) => o.id));
     for (const o of state.orders) restage(o);
     if (state.order) restage(state.order);
-    const sources = waiting.map((o) => ({ orderId: o.id, why: TYPES[o.claim.type].event[0].toUpperCase() + TYPES[o.claim.type].event.slice(1) + ", " + o.claim.result.pct + "% refund",
+    const sources = waiting.map((o) => ({ orderId: o.id, why: refundWhy(o),
       amount: usdc(o.raw.settled.refund) }));
     return { claimable: usdc(units), sources, withdrawn: null };
   },
@@ -229,6 +229,10 @@ function toOrder(v, co) {
   const finalEv = evTx(/final:/);
   const lastOutTx = (state.withdrawals || []).filter((x) => v.settled && x.at >= v.settled.at)[0];
   const pct = v.settled && v.amount_cents ? Math.round((v.settled.refund / 1e4 / v.amount_cents) * 100) : 0;
+  // Closed by the store with merchantRefund (the escrow's verdictRef is bytes32("merchant")): no verdict to show.
+  const byStore = !!v.settled && BY_STORE.test(String(v.settled.verdictRef || ""));
+  const summary = v.settled ? (byStore ? "refunded in full by the store"
+    : v.settled.refund > 0 ? `refund of ${usdc(v.settled.refund)} USDC` : (finalStep && finalStep.final.reason) || "paid to the store") : "";
   o.claim = {
     type: c.event, stage, signedAt: fmt(c.at), answers,
     emailsRegistered: evidence.length,
@@ -236,13 +240,22 @@ function toOrder(v, co) {
     storeAnswered: !!response, storeAnswer: response && typeof response.content === "string" ? response.content : "",
     proof,
     result: v.settled ? { outcome: v.settled.refund > 0 ? "refund" : "released", refunded: usdc(v.settled.refund),
-      released: usdc(v.settled.released || 0), pct,
-      summary: v.settled.refund > 0 ? `refund of ${usdc(v.settled.refund)} USDC` : (finalStep && finalStep.final.reason) || "paid to the store" } : null,
+      released: usdc(v.settled.released || 0), pct, byStore, summary,
+      sub: byStore ? "The store refunded the full amount and closed the claim." : "Verdict: " + summary } : null,
     times: { open: hm(open.at || c.at), emails: hm(emailsTx.at), store: hm(storeTx.at || (noResponse && noResponse.at)), judge: hm(finalEv.at),
-      verdict: hm(finalEv.at), settle: hm(settledTx.at), withdraw: hm(lastOutTx && lastOutTx.at) },
+      verdict: hm(finalEv.at), refund: hm(settledTx.at), settle: hm(settledTx.at), withdraw: hm(lastOutTx && lastOutTx.at) },
     txs: { open: open.tx || "", emails: emailsTx.tx || "", store: storeTx.tx || "", settle: settledTx.tx || "", withdraw: (lastOutTx && lastOutTx.tx) || "" },
   };
   return o;
+}
+
+const BY_STORE = /^0x6d65726368616e74(00)+$/; // bytes32("merchant"), the escrow's verdictRef of merchantRefund
+/** Where a refund in the balance comes from: the claim's verdict, or the store's own full refund. */
+function refundWhy(o) {
+  const c = o.claim, t = c && TYPES[c.type] ? TYPES[c.type].event : "";
+  const ev = t ? t[0].toUpperCase() + t.slice(1) : "";
+  if (c && c.result && c.result.byStore) return "Refunded in full by the store" + (ev ? " (claim: " + t + ")" : "");
+  return ev ? ev + ", " + c.result.pct + "% refund" : "Refund";
 }
 
 /** A settled refund waits in the escrow (stage withdraw) or was withdrawn (done), as the balance on Arc says. */
@@ -399,8 +412,13 @@ function claimSteps(o) {
   const defs = [{ key: "open", title: "Open the claim", est: "1 signature", desc: "Your claim is signed and sent to the escrow on Arc.", done: "Signed by you" }];
   if (c.type === "late") defs.push({ key: "emails", title: "Register the store emails", est: n + " signatures", desc: "Each store email verified in Lacre goes into the claim with its own signature.", done: n + " store emails registered" });
   if (c.type !== "late") defs.push({ key: "store", title: "Wait for the store", est: "5 min on testnet", desc: store + " can answer the claim before the judge reads it.", done: c.storeAnswered ? 'The store answered: "' + (c.storeAnswer || "") + '"' : "The store did not answer in time" });
-  defs.push({ key: "judge", title: "Judge on GenLayer", est: "about 10 min", desc: "An AI judge reads the refund terms, your claim and the store emails. It can ask you for proof.", done: c.result ? "Decided: " + c.result.summary : "The judge decided" });
-  defs.push({ key: "verdict", title: "Final verdict", est: "about 30 min", desc: "GenLayer validators confirm the decision. This verdict is final.", done: "Confirmed by GenLayer validators" });
+  if (c.result && c.result.byStore) {
+    // merchantRefund closed the claim: there is no verdict, whatever the judge said before
+    defs.push({ key: "refund", title: "Refunded by the store", est: "", desc: "", done: "The store refunded the full amount and closed the claim" });
+  } else {
+    defs.push({ key: "judge", title: "Judge on GenLayer", est: "about 10 min", desc: "An AI judge reads the refund terms, your claim and the store emails. It can ask you for proof.", done: c.result ? "Decided: " + c.result.summary : "The judge decided" });
+    defs.push({ key: "verdict", title: "Final verdict", est: "about 30 min", desc: "GenLayer validators confirm the decision. This verdict is final.", done: "Confirmed by GenLayer validators" });
+  }
   defs.push({ key: "settle", title: "Settlement on Arc", est: "a few minutes", desc: "Arc moves the funds out of the escrow.", done: released ? "Payment released to the store" : "Refund moved to your balance in the escrow" });
   defs.push({ key: "withdraw", title: "Withdraw", est: "1 signature", desc: "Your refund waits in the escrow until you withdraw it.", done: "Withdrawn to your wallet" });
 

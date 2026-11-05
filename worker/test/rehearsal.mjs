@@ -1075,6 +1075,17 @@ async function run(url, stubPort, keys) {
   check(cRv.settled?.refund === cRv.amount_cents * 1e4 && cRv.settled?.released === 0 && /^0x6d65726368616e74(00)+$/.test(cRv.settled?.verdictRef || "")
     && mc.text("action-settled").includes("refunded in full by the store"),
     "MERCHANTS C the second click signs merchantRefund: all to the buyer, 0 to the store, reason merchant, and the order shows it");
+  // the buyer's My orders: a claim the store refunded shows the store's refund and the claim type, never a verdict text
+  const moR = await makeOrdersPage({ getCore: () => core, cfg, pub, wallet, P });
+  await moR.load("#/orders/" + cR);
+  await moR.connect(B2);
+  await moR.until(() => moR.shown("claim-result") && moR.text("balance-sources").includes(cR));
+  const srcR = [...moR.doc.querySelectorAll("#balance-sources > *")].map((r) => r.textContent.replace(/\s+/g, " ").trim()).find((x) => x.includes(cR)) || "";
+  check(moR.text("claim-result").includes("The store refunded the full amount and closed the claim") && !/Verdict/.test(moR.text("claim-result"))
+    && moR.text("claim-steps").includes("Refunded by the store") && !/Final verdict|Judge on GenLayer/.test(moR.text("claim-steps"))
+    && srcR.includes("Refunded in full by the store (claim: arrived late)") && !/% refund/.test(srcR),
+    "ORDERS a claim the store refunded (merchantRefund): Refunded in full by the store with the claim type, no verdict text");
+  moR.close();
   await mc.go("#/orders/" + g4);
   check(mc.shown("action-settled") && /no refund/.test(mc.text("action-settled")) && mc.text("action-settled").includes("2.00 USDC"),
     "MERCHANTS C a settled claim: the result and how much went to each side");
