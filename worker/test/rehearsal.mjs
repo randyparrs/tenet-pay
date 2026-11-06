@@ -784,6 +784,14 @@ async function run(url, stubPort, keys) {
     "ORDERS the 3 store emails registered with 3 signatures, as the Worker gave them");
   const moLateV = await settled(moLate.order);
   await mo.until(() => mo.text("detail-status") === "Refund ready");
+  // the whole timeline (View more), then the last 4 again
+  const moEv = mo.T.state.order.events;
+  const moRows = () => mo.doc.querySelectorAll("#timeline .tl").length;
+  check(moEv.length > 4 && moRows() === 4 && !mo.doc.getElementById("timeline-more").hidden && mo.text("timeline-more") === `View more (${moEv.length - 4} earlier)`,
+    "ORDERS the timeline shows the last 4 events and View more (the number of earlier ones)");
+  await mo.click("timeline-more");
+  check(moRows() === moEv.length && mo.attr("timeline-card", "data-open") === "true" && mo.text("timeline-more") === "View less",
+    "ORDERS View more opens the whole timeline inside its card, which ends where the claim card ends; View less closes it");
   const tlRows = [...mo.doc.querySelectorAll("#timeline .tl")];
   const tlTx = tlRows.map((r) => r.querySelector("[data-f-tx]")?.getAttribute("href") || "").filter((h) => h && h !== "#");
   const tlText = tlRows.map((r) => r.querySelector('[data-f="what"]')?.textContent || "");
@@ -803,6 +811,9 @@ async function run(url, stubPort, keys) {
   await mo.until(() => mo.text("pending-withdraw").includes("Tenet read it"));
   check((await esc("claimable", [B4.address, USDC])) === 0n && mo.text("pending-withdraw").includes("Tenet read it") && mo.attr("balance-withdraw", "data-sign-state") === "done",
     "ORDERS Withdraw: the whole balance to the wallet, read by Tenet, the button done");
+  const ordersCss = readFileSync(P("site/orders/styles.css"), "utf8");
+  check(/\.two-col\.detail-cols \{[^}]*align-items: stretch/.test(ordersCss) && /\.detail-cols \.timeline-scroll \{[^}]*overflow-y: auto;[^}]*contain: size/.test(ordersCss),
+    "ORDERS two columns: the right column stretches to the claim card's height and the timeline scrolls inside it (its content does not set the height)");
   mo.close();
   // A wallet that withdrew before the Worker read Withdrawn events (Randy's buyer on testnet, 2026-10-22): its refunds
   // are not shown as waiting, because the escrow's balance decides.
@@ -994,13 +1005,21 @@ async function run(url, stubPort, keys) {
   const rowLeft = mc.doc.querySelector("#order-row-" + cN + " .orders-row__cd"), otherLeft = mc.doc.querySelector("#order-row-" + cU + " .orders-row__cd");
   check(!!rowLeft && !rowLeft.hasAttribute("hidden") && /^\d+:\d{2} left$/.test(rowLeft.textContent) && !!otherLeft && otherLeft.hasAttribute("hidden"),
     "MERCHANTS C a claim waiting for the store shows its time left in the orders list too; an order with nothing due does not");
-  const cNev = (await core.orderView(cN, await t())).events.slice(-6), links = [...mc.doc.querySelectorAll("#order-timeline .event__tx")].map((a) => a.getAttribute("href"));
+  const cNall = (await core.orderView(cN, await t())).events, cNev = cNall.slice(-4), links = [...mc.doc.querySelectorAll("#order-timeline .event__tx")].map((a) => a.getAttribute("href"));
   // Bradbury transactions from before GenLayer's reset (site/tenet.js, ARCHIVED_BEFORE) open their archived record, marked so
   const glHref = (e) => (e.at < Date.UTC(2026, 9, 28) / 1000 ? "https://github.com/randyparrs/tenet-pay/blob/main/data/bradbury-archive.jsonl"
     : "https://scan.bradbury.genlayer.com/tx/" + e.tx);
   check(links.length === cNev.length && cNev.some((e) => e.tx) && cNev.every((e, i) => !e.tx ? links[i] === null
     : links[i] === (e.net === "arc" ? "https://explorer.testnet.arc.io/tx/" + e.tx : glHref(e))),
-    "MERCHANTS C the order's timeline (last 6): each transaction opens its network's explorer (Arc, or Bradbury Phase 2 for the judge and Lacre)");
+    "MERCHANTS C the order's timeline (last 4): each transaction opens its network's explorer (Arc, or Bradbury Phase 2 for the judge and Lacre)");
+  const panelTl = () => mc.doc.querySelectorAll("#order-timeline .event").length;
+  check(cNall.length > 4 && panelTl() === 4 && !mc.doc.getElementById("timeline-more").hidden
+    && mc.text("timeline-more") === `View more (${cNall.length - 4} earlier)` && mc.text("order-detail").includes("TIMELINE") && !mc.text("order-detail").includes("LAST 6"),
+    "MERCHANTS C the timeline shows the last 4 events and View more (the number of earlier ones)");
+  await mc.click("timeline-more");
+  check(panelTl() === cNall.length && mc.attr("timeline-wrap", "data-open") === "true" && mc.text("timeline-more") === "View less",
+    "MERCHANTS C View more opens the whole timeline, which scrolls inside the card; View less closes it");
+  await mc.click("timeline-more");
   const sharedJs = readFileSync(P("site/tenet.js"), "utf8"), archive = readFileSync(P("data/bradbury-archive.jsonl"), "utf8").trim().split(/\r?\n/).map((l) => JSON.parse(l));
   check(sharedJs.includes("ARCHIVED_BEFORE = Date.UTC(2026, 9, 28) / 1000") && sharedJs.includes('"https://github.com/randyparrs/tenet-pay/blob/main/data/bradbury-archive.jsonl"')
     && /tag\.textContent = 'archived'/.test(readFileSync(P("merchants-site/app.js"), "utf8")) && /tag\.textContent = "archived"/.test(readFileSync(P("site/orders/orders.js"), "utf8"))

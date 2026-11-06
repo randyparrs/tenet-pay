@@ -405,9 +405,10 @@
               <span class="panel__sub panel__sub--sm" id="action-none" data-visible-action="none">Nothing to do. The payment is held in escrow and released to you after <span data-field="store.holdDays"></span> days unless the buyer opens a claim.</span>
               <span class="panel__sub panel__sub--sm" id="action-wait" data-visible-action="unpaid wait" data-field="sel.waitText"></span>
 
-              <div class="timeline">
-                <span class="label-caps mono timeline__title">TIMELINE · LAST 6</span>
-                <div id="order-timeline" data-list="sel.events"></div>
+              <div class="timeline" id="timeline-wrap" data-open="false">
+                <span class="label-caps mono timeline__title">TIMELINE</span>
+                <div class="timeline__list" id="order-timeline" data-list="sel.events"></div>
+                <button type="button" class="btn-ghost btn-ghost--sm timeline__more" id="timeline-more" data-action="timeline-more" hidden>View more</button>
               </div>
             </div>
           </div>
@@ -529,6 +530,6 @@
   </svg>
 </template>
 
-<script type="module" src="app.js?v=20261106a"></script>
+<script type="module" src="app.js?v=20261106b"></script>
 </body>
 </html>

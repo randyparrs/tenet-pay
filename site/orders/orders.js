@@ -706,9 +706,17 @@ function renderEmails() {
   });
 }
 
+// The timeline shows the last TIMELINE_SHOWN events; View more opens the rest, inside the card, which ends where the
+// claim card ends (styles.css, .detail-cols).
+const TIMELINE_SHOWN = 4;
 function renderTimeline() {
-  const el = $("#timeline");
-  const list = (state.order && state.order.events) || [];
+  const el = $("#timeline"), more = $("#timeline-more");
+  const all = (state.order && state.order.events) || [];
+  const open = !!state.order && state.timelineOpenFor === state.order.id;
+  const list = open ? all : all.slice(-TIMELINE_SHOWN);
+  more.hidden = all.length <= TIMELINE_SHOWN;
+  more.textContent = open ? "View less" : `View more (${all.length - TIMELINE_SHOWN} earlier)`;
+  $("#timeline-card").setAttribute("data-open", open ? "true" : "false");
   renderIfChanged(el, list, () => {
     el.innerHTML = "";
     list.forEach((ev) => {
@@ -1102,6 +1110,7 @@ function bindEvents() {
       case "send-proof": sendProof(); break;
       case "withdraw": withdraw(); break;
       case "goto-balance": gotoBalance(); break;
+      case "timeline-more": state.timelineOpenFor = state.timelineOpenFor === state.order?.id ? null : state.order?.id; render(); break;
     }
   });
   document.addEventListener("input", (e) => {

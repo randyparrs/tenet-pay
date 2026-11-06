@@ -277,6 +277,7 @@ function toData(v) {
 }
 
 /* ---------- State ---------- */
+var TIMELINE_SHOWN = 4; // the store panel's order timeline: the last 4 events, View more for the rest
 var state = {
   config: null,
   data: toData(null),
@@ -299,7 +300,8 @@ var state = {
   review: { pre: '', excl: '', other: '' },
   creds: null,
   sign: {},
-  refundAsk: {}, // order id: the store clicked "Refund in full" on a claim once and is asked to confirm
+  refundAsk: {},
+  timelineOpenFor: null, // order id whose whole timeline is open // order id: the store clicked "Refund in full" on a claim once and is asked to confirm
   signTx: {},
   signHash: {},
   withdrawn: null,
@@ -656,9 +658,14 @@ function renderOrders() {
   ta.disabled = !!state.sign['response:' + answerKey(sel)] || cd.closed;
   $('#response-counter').setAttribute('data-near-limit', (state.responses[answerKey(sel)] || '').length > CONFIG.responseMax - 50 ? 'true' : 'false');
 
-  var tl = $('#order-timeline');
+  // The last TIMELINE_SHOWN events; View more opens the rest, which scroll inside the card.
+  var tl = $('#order-timeline'), all = sel.events || [], open = !!sel.id && state.timelineOpenFor === sel.id;
+  var more = $('#timeline-more');
+  more.hidden = all.length <= TIMELINE_SHOWN;
+  more.textContent = open ? 'View less' : 'View more (' + (all.length - TIMELINE_SHOWN) + ' earlier)';
+  $('#timeline-wrap').setAttribute('data-open', open ? 'true' : 'false');
   tl.innerHTML = '';
-  (sel.events || []).slice(-6).forEach(function (e) {
+  (open ? all : all.slice(-TIMELINE_SHOWN)).forEach(function (e) {
     var ev = cloneTemplate('tpl-event');
     ev.setAttribute('data-tone', e.tone || 'neutral');
     $('.event__t', ev).textContent = e.time;
@@ -991,6 +998,7 @@ function bindEvents() {
       case 'disconnect': state.menu = null; wallet.disconnect(); break;
       case 'switch-network': state.menu = null; wallet.switchNetwork(); break;
       case 'retry-load': loadStore(); break;
+      case 'timeline-more': var so = selectedOrder(); state.timelineOpenFor = so && state.timelineOpenFor !== so.id ? so.id : null; render(); break;
       case 'start-registration': startRegistration(); break;
       case 'check-txt': checkTxt(); break;
       case 'draft-terms': draftTerms(); break;
