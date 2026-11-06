@@ -286,18 +286,18 @@
               <span class="activation-head__title" data-visible-reg="escrow">Registering your store in the escrow on Arc</span>
               <span class="activation-head__body" data-visible-reg="key">Tenet is registering the key that signs your emails, so Lacre can verify them on future claims.</span>
               <span class="activation-head__body" data-visible-reg="key_pending">Your DKIM key is registered. Lacre is confirming it before the judges are set up.</span>
-              <span class="activation-head__body" data-visible-reg="judges">Your DKIM key was already active, so Tenet went straight to the judges. This is the longest stage, usually about 70 minutes.</span>
+              <span class="activation-head__body" data-visible-reg="judges">Your DKIM key was already active, so Tenet went straight to the judges. This is the longest stage, usually 5 to 15 minutes. Times depend on the GenLayer testnet.</span>
               <span class="activation-head__body" data-visible-reg="escrow">The judges are ready. Tenet is registering your store and its terms hash in the escrow. Almost done.</span>
             </div>
             <div class="activation-head__time" data-visible-flag="elapsedKnown">
               <span class="activation-head__elapsed mono" id="activation-elapsed" data-field="ui.elapsed"></span>
-              <span class="hint">of about 75 min</span>
+              <span class="hint">of about 20 min</span>
             </div>
           </div>
           <div class="progress-track"><div class="progress-track__fill" id="activation-progress"></div></div>
           <div class="stages" id="activation-stages">
             <div class="stage" data-stage="dkim" data-stage-meta="about 5 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">DKIM key registered for Lacre</span><span class="stage__meta mono"></span></div>
-            <div class="stage" data-stage="judges" data-stage-meta="about 70 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">Judges set up on GenLayer</span><span class="stage__meta mono"></span></div>
+            <div class="stage" data-stage="judges" data-stage-meta="usually 5 to 15 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">Judges set up on GenLayer</span><span class="stage__meta mono"></span></div>
             <div class="stage" data-stage="escrow" data-stage-meta="about 1 min" data-stage-state="todo"><span class="stage__dot"><svg class="stage__check" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="spin spin--12 stage__spin"></span></span><span class="stage__label">Store registered in the escrow on Arc</span><span class="stage__meta mono"></span></div>
           </div>
           <div class="row-actions">
@@ -377,7 +377,7 @@
                 <span class="panel__sub panel__sub--sm">Multipart with a plain text part, signed with DKIM, 12 KB at most.</span>
                 <button type="button" class="sign-btn sign-btn--sm" id="sign-readable-email" data-action="sign" data-sign="readable" data-sign-scope="order" data-sign-type="message"
                   data-label-idle="I sent a readable email" data-label-done="Readable email received"
-                  data-sub-idle="Tenet checks the order address for a new, readable email." data-sub-done="Lacre is attesting it. Usually 21 to 45 minutes." data-sub-disabled="The window closed.">
+                  data-sub-idle="Tenet checks the order address for a new, readable email." data-sub-done="Lacre is attesting it, usually in a few minutes. Times depend on the GenLayer testnet." data-sub-disabled="The window closed.">
                   <span class="spin spin--16 sign-btn__spin"></span><svg class="sign-btn__check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg><span class="sign-btn__label"></span>
                 </button>
                 <span class="sign-sub" data-sign-sub="readable"></span>
@@ -529,6 +529,6 @@
   </svg>
 </template>
 
-<script type="module" src="app.js?v=20261105a"></script>
+<script type="module" src="app.js?v=20261106a"></script>
 </body>
 </html>

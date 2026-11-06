@@ -1208,6 +1208,15 @@ async function run(url, stubPort, keys) {
     && /^[0-9a-f-]{36}\|\d+-\w+\.apps\.googleusercontent\.com$/.test(tenetCircle) && circleMeta(ckHtml) === tenetCircle && circleMeta(ordersHtml) === tenetCircle
     && /src="\.\.\/circle\.js\?v=/.test(ckHtml) && /src="\.\.\/circle\.js\?v=/.test(ordersHtml),
     "CIRCLE the checkout (/pay/) and My orders (/orders/) offer Continue with Google with Tenet's Circle app and Google client; Google sends the buyer back to the page they left and the SDK loads from the site root");
+  // the waits measured on Bradbury Phase 2 (2026-11-06), stated without promising more: the network varies
+  const timesNote = "Times depend on the GenLayer testnet.";
+  const ordersJs = readFileSync(P("site/orders/orders.js"), "utf8"), panelHtml = readFileSync(P("merchants-site/index.html"), "utf8");
+  check(/title: "Judge on GenLayer", est: "usually 5 to 15 min"/.test(ordersJs) && /title: "Final verdict", est: "usually a few minutes"/.test(ordersJs)
+    && /title: "Settlement on Arc", est: "usually a few minutes"/.test(ordersJs) && !/about (10|30) min/.test(ordersJs)
+    && ordersHtml.includes("each wait takes minutes. " + timesNote) && ckHtml.includes("deadlines run in minutes. " + timesNote)
+    && panelHtml.includes("Lacre is attesting it, usually in a few minutes. " + timesNote) && panelHtml.includes("usually 5 to 15 minutes. " + timesNote)
+    && !/21 to 45|about 70 min|about 75 min/.test(panelHtml),
+    "TIMES My orders, the checkout and the store panel: attestation usually a few minutes, judge usually 5 to 15 minutes, settlement usually a few minutes, with the note that times depend on the GenLayer testnet");
   const homeImgs = [...homeHtml.matchAll(/<img [^>]*src="([^"]+)"/g)].map((m) => m[1]);
   check(homeImgs.join() === "logos/arc.svg,logos/genlayer.svg,logos/lacre.svg,https://i.ytimg.com/vi/z4cT_LdlxKg/maxresdefault.jpg"
     && readdirSync(P("site/logos")).join() === "arc.svg,genlayer.svg,lacre.svg"

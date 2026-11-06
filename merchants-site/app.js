@@ -27,7 +27,7 @@ var CONFIG = {
   policyMax: 6000,
   responseMax: 1000,
   lowCountdownSeconds: 60,
-  activationSeconds: 4500,
+  activationSeconds: 1200,
   actionsThatNeedYou: ['respond', 'send_readable_email', 'refund']
 };
 var LINKS = { buyerCheckout: 'https://paytenet.site' };

@@ -416,10 +416,10 @@ function claimSteps(o) {
     // merchantRefund closed the claim: there is no verdict, whatever the judge said before
     defs.push({ key: "refund", title: "Refunded by the store", est: "", desc: "", done: "The store refunded the full amount and closed the claim" });
   } else {
-    defs.push({ key: "judge", title: "Judge on GenLayer", est: "about 10 min", desc: "An AI judge reads the refund terms, your claim and the store emails. It can ask you for proof.", done: c.result ? "Decided: " + c.result.summary : "The judge decided" });
-    defs.push({ key: "verdict", title: "Final verdict", est: "about 30 min", desc: "GenLayer validators confirm the decision. This verdict is final.", done: "Confirmed by GenLayer validators" });
+    defs.push({ key: "judge", title: "Judge on GenLayer", est: "usually 5 to 15 min", desc: "An AI judge reads the refund terms, your claim and the store emails. It can ask you for proof.", done: c.result ? "Decided: " + c.result.summary : "The judge decided" });
+    defs.push({ key: "verdict", title: "Final verdict", est: "usually a few minutes", desc: "GenLayer validators confirm the decision. This verdict is final.", done: "Confirmed by GenLayer validators" });
   }
-  defs.push({ key: "settle", title: "Settlement on Arc", est: "a few minutes", desc: "Arc moves the funds out of the escrow.", done: released ? "Payment released to the store" : "Refund moved to your balance in the escrow" });
+  defs.push({ key: "settle", title: "Settlement on Arc", est: "usually a few minutes", desc: "Arc moves the funds out of the escrow.", done: released ? "Payment released to the store" : "Refund moved to your balance in the escrow" });
   defs.push({ key: "withdraw", title: "Withdraw", est: "1 signature", desc: "Your refund waits in the escrow until you withdraw it.", done: "Withdrawn to your wallet" });
 
   const activeKey = { opening: "open", emails: "emails", store: "store", judge: "judge", verdict: "verdict", settle: "settle", withdraw: "withdraw" }[c.stage];
