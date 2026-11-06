@@ -18,6 +18,12 @@ import { split, checkStoreEmail, headersBlob, judgeText, alignedSignature, parse
 
 const OUTCOME = { REFUND: 1, DENY: 2, INVALID_CLAIM: 3 };
 const MAX_ATTEMPTS = 3;
+// A Bradbury transaction the network canceled before any vote never ran: it does not count as an attempt. Tenet sends it
+// again an hour after the cancellation, and keeps trying for 7 days (from the email's arrival, or the step's first send).
+const RETRY_EVERY = 3600;
+const RETRY_FOR = 7 * 86400;
+const unrun = (st) => !!st && st.status === "CANCELED" && !st.lastVote;
+const counted = (attempts) => attempts.filter((a) => !a.unrun).length;
 const NO_CONSENSUS_STATUS = new Set(["UNDETERMINED", "LEADER_TIMEOUT", "VALIDATORS_TIMEOUT"]);
 const NO_CONSENSUS_RESULT = new Set(["NO_MAJORITY", "MAJORITY_DISAGREE"]);
 const DATE = "(20\\d\\d-[01]\\d-[0-3]\\d)\\b";
@@ -590,7 +596,7 @@ export class GatewayCore {
     const n = o.steps.filter((s) => s.final).length + 1;
     let st = o.steps.find((s) => s.n === n && !s.final);
     if (!st) { st = { n, from: o.judged, to: cur, count: pend.length, attempts: [] }; o.steps.push(st); }
-    if (st.attempts.length >= MAX_ATTEMPTS) return; // left to the escrow's stall release
+    if (counted(st.attempts) >= MAX_ATTEMPTS) return; // left to the escrow's stall release
     const step = cj({ chain: o.judged, submissions: pend });
     const at = await this.glSend(st, budget, () => this.gl.sendJudge(o.claim.judge, o.claim.text, step), () => this.saveOrder(o));
     if (at?.tx) this.event(o, now, `Step ${n} sent to the judge, attempt ${st.attempts.length}`, { tx: at.tx, net: "bradbury" });
@@ -599,6 +605,13 @@ export class GatewayCore {
   async follow(o, st, meta, now, budget) {
     const at = st.attempts[st.attempts.length - 1];
     if (!at) return;
+    if (at.unrun) {
+      // canceled by the network before any vote: sent again an hour later, for 7 days from the step's first send
+      if (now - st.attempts[0].startedAt < RETRY_FOR && now - at.doneAt >= RETRY_EVERY && budget.gl > 0 && this.pending(o)) {
+        await this.judge(o, meta, budget, now);
+      }
+      return;
+    }
     const status = at.tx ? await this.gl.status(at.tx) : null;
     const final = status && status.status === "FINALIZED" ? await this.gl.verdict(o.claim.judge, st.to, true) : null;
     if (final && final.outcome && final.outcome !== "NO_CONSENSUS") {
@@ -626,9 +639,16 @@ export class GatewayCore {
     }
     const over = at.tx ? !!(status && status.done) : now - at.startedAt >= 900;
     if (over) {
-      at.result = at.tx ? `no consensus (${status.result || status.status}), resent` : "not sent";
       st.decided = null;
-      if (st.attempts.length < MAX_ATTEMPTS && budget.gl > 0 && this.pending(o)) await this.judge(o, meta, budget, now);
+      if (at.tx && unrun(status)) {
+        at.unrun = true;
+        at.doneAt = Number(now);
+        at.result = "canceled by the network before any vote, sent again in an hour";
+        this.event(o, now, `Step ${st.n}: the network canceled it before any vote; Tenet sends it again in an hour`, { tx: at.tx, net: "bradbury" });
+        return;
+      }
+      at.result = at.tx ? `no consensus (${status.result || status.status}), resent` : "not sent";
+      if (counted(st.attempts) < MAX_ATTEMPTS && budget.gl > 0 && this.pending(o)) await this.judge(o, meta, budget, now);
     }
   }
 
@@ -659,6 +679,7 @@ export class GatewayCore {
 
   async attestMails(o, now, budget) {
     for (const m of o.mails) {
+      if (m.state === "not_attested" && !m.unrunChecked) await this.reviveMail(o, m, now);
       if (m.state !== "attesting") continue;
       const a = m.attempts[m.attempts.length - 1];
       if (a && !a.done) {
@@ -673,13 +694,34 @@ export class GatewayCore {
         }
         if (!(a.tx ? st && st.done : now - a.startedAt >= 900)) continue;
         a.done = true;
+        if (a.tx && unrun(st)) {
+          a.unrun = true;
+          a.doneAt = Number(now);
+          this.event(o, now, `The network canceled the attestation before any vote; Tenet sends it again in an hour (${m.subject})`, { tx: a.tx, net: "lacre" });
+        }
       }
-      if (m.attempts.length >= MAX_ATTEMPTS) { m.state = "not_attested"; continue; }
+      const last = m.attempts[m.attempts.length - 1];
+      if (last && last.unrun) {
+        if (now - (m.receivedAt || last.startedAt) >= RETRY_FOR) { m.state = "not_attested"; continue; }
+        if (now - last.doneAt < RETRY_EVERY) continue;
+      }
+      if (counted(m.attempts) >= MAX_ATTEMPTS) { m.state = "not_attested"; continue; }
       const x = await this.shop(o.merchant);
       // the body goes along only for the rehearsal's simulated Lacre, which checks the signature; Lacre takes the blob
       const at = await this.glSend(m, budget, () => this.gl.attest(m.blob, x.domain, x.selector, m.body), () => this.saveOrder(o));
       if (at?.tx) this.event(o, now, `Store email sent to Lacre (${m.subject})`, { tx: at.tx, net: "lacre" });
     }
+  }
+
+  /** An email left not attested before attempts canceled by the network stopped counting: if every attempt was
+   *  canceled before any vote, it goes back to attesting (once checked, never read again). */
+  async reviveMail(o, m, now) {
+    m.unrunChecked = true;
+    if (now - (m.receivedAt || 0) >= RETRY_FOR || !m.attempts.length || m.attempts.some((a) => !a.tx)) return;
+    for (const a of m.attempts) if (!a.unrun && !unrun(await this.gl.status(a.tx))) return;
+    for (const a of m.attempts) { a.unrun = true; a.done = true; a.doneAt ||= Number(now); }
+    m.state = "attesting";
+    this.event(o, now, `The network canceled every attestation before any vote; Tenet sends it again in an hour (${m.subject})`, { net: "lacre" });
   }
 
   evidence(m) {

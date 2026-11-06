@@ -2,7 +2,7 @@
 // tools/gl2.mjs. The gateway key owns the gateway judges and sends only to them, to Lacre's Verifier and to Lacre's
 // KeyCache (register_key and confirm_key are open to anyone; the Worker pays them for each store). Each send estimates
 // its fee deposit (returned at finalization) and stops above 10 GEN. Sends and transaction reads go to the SDK's chain
-// RPC; contract reads go to the GenLayer node. Lacre is not on Phase 2 yet: its calls fail, and glSend records the error.
+// RPC; contract reads go to the GenLayer node.
 import { createClient, createAccount } from "genlayer-js";
 import { testnetBradbury } from "genlayer-js/chains";
 

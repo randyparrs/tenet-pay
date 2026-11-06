@@ -1222,6 +1222,88 @@ async function run(url, stubPort, keys) {
   check(Object.keys(homeShown).length === 5 && Object.entries(homeNumbers).every(([k, v]) => homeShown[k] === String(v)),
     `HOME the three numbers are Tenet's data at the pinned commit (build_site.py): verdicts ${homeShown["verdicts-expected"]} / ${homeShown["verdicts-total"]}, committee C3 ${homeShown["committee-correct"]} / ${homeShown["committee-total"]}, live orders settled ${homeShown["orders-settled"]}`);
 
+  // ---- the network cancels Bradbury transactions before any vote (as Bradbury Phase 2 did on 2026-11-05) -------
+  // While netDown, a Lacre attestation or a judge step gets a transaction the network cancels without a vote.
+  const realGl = { attest: gl.attest, sendJudge: gl.sendJudge, status: gl.status };
+  let netDown = false, dead = 0;
+  const deadTx = () => "0x" + "de".repeat(30) + String(++dead).padStart(4, "0");
+  const isDead = (tx) => /^0x(de){30}\d{4}$/.test(String(tx));
+  gl.attest = async (...a) => (netDown ? deadTx() : realGl.attest(...a));
+  gl.sendJudge = async (...a) => (netDown ? deadTx() : realGl.sendJudge(...a));
+  gl.status = async (tx) => (isDead(tx) ? { status: "CANCELED", result: "IDLE", done: true, lastVote: 0 } : realGl.status(tx));
+  const rawMails = async (n) => (await core.order(n)).mails;
+
+  netDown = true;
+  const nd = await shop.buy("earbuds", await t());
+  await pay(B3, await core.checkout(nd.order));
+  await tick(4, 20);
+  let ndm = await rawMails(nd.order);
+  check(ndm.length >= 2 && ndm.every((m) => m.state === "attesting" && m.attempts.length === 1 && m.attempts[0].unrun),
+    "NETWORK an attestation the network canceled before any vote: not counted, still attesting, nothing sent again within the hour");
+  await tick(12, 1800);
+  ndm = await rawMails(nd.order);
+  const gaps = (m) => m.attempts.slice(1).every((a, i) => a.startedAt - m.attempts[i].doneAt >= 3600);
+  check(ndm.every((m) => m.state === "attesting" && m.attempts.length > 3 && m.attempts.every((a) => a.unrun) && gaps(m)),
+    "NETWORK six hours down: more than 3 canceled attempts, none counted, each sent an hour after the last cancellation");
+  netDown = false;
+  await tick(6, 1800);
+  ndm = await rawMails(nd.order);
+  const ndNow = await t();
+  check(ndm.filter((m) => m.receivedAt < ndNow - 3 * 3600).every((m) => m.state === "attested" && m.record != null),
+    "NETWORK back up: the same emails are sent again and attested on Lacre");
+
+  // an email left not_attested by the earlier rule (three attempts the network canceled): revived once, then attested
+  netDown = true;
+  const nd2 = await shop.buy("earbuds", await t());
+  await pay(B4, await core.checkout(nd2.order));
+  await tick(3, 20);
+  const nd2o = await core.order(nd2.order);
+  for (const m of nd2o.mails) {
+    m.attempts = [1, 2, 3].map((i) => ({ startedAt: m.receivedAt + i, tx: deadTx(), done: true }));
+    m.state = "not_attested";
+    delete m.unrunChecked;
+  }
+  await core.saveOrder(nd2o);
+  netDown = false;
+  await tick(1, 20);
+  let nd2m = await rawMails(nd2.order);
+  check(nd2m.every((m) => m.state === "attesting" && m.unrunChecked && m.attempts.every((a) => a.unrun))
+    && (await core.orderView(nd2.order, await t())).events.some((e) => /canceled every attestation before any vote/.test(e.what)),
+    "NETWORK an email left not attested after three attempts the network canceled goes back to attesting");
+  await tick(6, 1800);
+  nd2m = await rawMails(nd2.order);
+  check(nd2m.every((m) => m.state === "attested"), "NETWORK and is attested an hour later");
+
+  // a judge step the network canceled: not counted, sent again an hour later, and the claim settles as usual
+  const nj = await run3(B3, "charger", "not_as_described", (n) => claimNad(n, true), (n) => storeSays(n, "response", "We are sorry, we sent the wrong charger. A refund is fine."));
+  netDown = true;
+  await tick(4, 20);
+  let njo = await core.order(nj);
+  const njAt = njo.steps[0]?.attempts || [];
+  check(njAt.length === 1 && njAt[0].unrun && !njo.steps[0].final,
+    "NETWORK a judge step the network canceled before any vote: not counted, nothing sent again within the hour");
+  netDown = false;
+  await tick(3, 1300);
+  const njv = await settled(nj);
+  njo = await core.order(nj);
+  check(njv.settled?.refund === 2_000_000 && njo.steps[0].attempts[0].unrun && njo.steps[0].attempts.length >= 2
+    && njv.events.some((e) => /network canceled it before any vote/.test(e.what)),
+    "NETWORK the step is sent again an hour later and the claim settles as usual: REFUND 2.00 USDC");
+
+  // the limit: 7 days from the email's arrival
+  netDown = true;
+  const nd3 = await shop.buy("earbuds", await t());
+  await pay(B4, await core.checkout(nd3.order));
+  await tick(3, 20);
+  await tick(1, 7 * 86400);
+  await tick(1, 20);
+  const nd3Now = await t();
+  const nd3m = (await rawMails(nd3.order)).filter((m) => m.receivedAt < nd3Now - 7 * 86400);
+  check(nd3m.length >= 2 && nd3m.every((m) => m.state === "not_attested" && m.attempts.every((a) => a.unrun)),
+    "NETWORK an email the network kept canceling for 7 days: not attested, as before");
+  netDown = false;
+  Object.assign(gl, realGl);
+
   say(`judge sends ${c.sends.judge}, Lacre attestations ${c.sends.attest}, set_merchant ${c.sends.set_merchant}, register_key ${c.sends.register_key}, confirm_key ${c.sends.confirm_key}`);
 }
 
