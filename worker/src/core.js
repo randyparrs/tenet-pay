@@ -380,6 +380,25 @@ export class GatewayCore {
     return at;
   }
 
+  /** Where a registration send stands: "wait" while its transaction runs or right after the network canceled it before
+   *  any vote ("unrun": not an attempt, sent again an hour later), "done" when it ran, "expired" when the network kept
+   *  canceling it for 7 days from the first send, "send" when the next one may go. */
+  async regSend(rec, now) {
+    const last = rec.attempts[rec.attempts.length - 1];
+    if (last && !last.done) {
+      const st = last.tx ? await this.gl.status(last.tx) : null;
+      if (!(last.tx ? st && st.done : now - last.startedAt >= 900)) return "wait";
+      last.done = true;
+      if (last.tx && unrun(st)) { last.unrun = true; last.doneAt = Number(now); return "wait"; }
+      return "done";
+    }
+    if (last && last.unrun) {
+      if (now - rec.attempts[0].startedAt >= RETRY_FOR) return "expired";
+      return now - last.doneAt >= RETRY_EVERY ? "send" : "wait";
+    }
+    return "send";
+  }
+
   // ---- registration on chain: KeyCache, then the two judges, then the escrow ----------------------------
 
   async registerStep(x, now, budget, meta) {
@@ -394,12 +413,10 @@ export class GatewayCore {
         x.state = "key_pending";
         return;
       }
-      const last = x.key.attempts[x.key.attempts.length - 1];
-      if (last && !last.done) {
-        const st = last.tx ? await this.gl.status(last.tx) : null;
-        if (!(last.tx ? st && st.done : now - last.startedAt >= 900)) return;
-        last.done = true;
-        if (x.key.attempts.length >= MAX_ATTEMPTS) { x.state = "failed"; x.failure = "the DKIM key could not be registered in Lacre's KeyCache"; }
+      const s = await this.regSend(x.key, now);
+      if (s === "wait") return;
+      if (s === "done" || s === "expired") {
+        if (s === "expired" || counted(x.key.attempts) >= MAX_ATTEMPTS) { x.state = "failed"; x.failure = "the DKIM key could not be registered in Lacre's KeyCache"; }
         return; // read the key state on the next tick
       }
       await this.glSend(x.key, budget, () => this.gl.registerKey(x.domain, x.selector), save);
@@ -408,14 +425,12 @@ export class GatewayCore {
     if (x.state === "key_pending") {
       if (now < x.key.activeAt + 60) return;
       x.key.confirm ||= { attempts: [] };
-      const c = x.key.confirm, last = c.attempts[c.attempts.length - 1];
-      if (last && !last.done) {
-        const st = last.tx ? await this.gl.status(last.tx) : null;
-        if (!(last.tx ? st && st.done : now - last.startedAt >= 900)) return;
-        last.done = true;
+      const c = x.key.confirm, s = await this.regSend(c, now);
+      if (s === "wait") return;
+      if (s === "done" || s === "expired") {
         const ks = await this.gl.keyStatus(x.domain, x.selector, true);
         if (ks && ks.state === "active") { x.state = "judges"; x.key.activatedAt = ks.activated_at || null; }
-        else if (c.attempts.length >= MAX_ATTEMPTS) { x.state = "failed"; x.failure = "confirm_key did not activate the DKIM key"; }
+        else if (s === "expired" || counted(c.attempts) >= MAX_ATTEMPTS) { x.state = "failed"; x.failure = "confirm_key did not activate the DKIM key"; }
         return;
       }
       await this.glSend(c, budget, () => this.gl.confirmKey(x.domain, x.selector), save);
@@ -427,14 +442,12 @@ export class GatewayCore {
       for (const kind of ["mail", "subjective"]) {
         const j = x.judges[kind];
         if (j.done) continue;
-        const last = j.attempts[j.attempts.length - 1];
-        if (last && !last.done) {
-          const st = last.tx ? await this.gl.status(last.tx) : null;
-          if (!(last.tx ? st && st.done : now - last.startedAt >= 900)) return;
-          last.done = true;
+        const s = await this.regSend(j, now);
+        if (s === "wait") return;
+        if (s === "done" || s === "expired") {
           const got = await this.gl.getMerchant(kind, x.merchant, x.terms_hash, true);
           if (got && JSON.parse(got).terms_hash === x.terms_hash) { j.done = true; continue; }
-          if (j.attempts.length >= MAX_ATTEMPTS) { x.state = "failed"; x.failure = `set_merchant on the ${kind} judge did not register`; }
+          if (s === "expired" || counted(j.attempts) >= MAX_ATTEMPTS) { x.state = "failed"; x.failure = `set_merchant on the ${kind} judge did not register`; }
           return;
         }
         await this.glSend(j, budget, () => this.gl.setMerchant(kind, x.merchant, terms), save);

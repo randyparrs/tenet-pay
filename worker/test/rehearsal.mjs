@@ -1224,12 +1224,14 @@ async function run(url, stubPort, keys) {
 
   // ---- the network cancels Bradbury transactions before any vote (as Bradbury Phase 2 did on 2026-11-05) -------
   // While netDown, a Lacre attestation or a judge step gets a transaction the network cancels without a vote.
-  const realGl = { attest: gl.attest, sendJudge: gl.sendJudge, status: gl.status };
+  const realGl = { attest: gl.attest, sendJudge: gl.sendJudge, status: gl.status, registerKey: gl.registerKey, setMerchant: gl.setMerchant };
   let netDown = false, dead = 0;
   const deadTx = () => "0x" + "de".repeat(30) + String(++dead).padStart(4, "0");
   const isDead = (tx) => /^0x(de){30}\d{4}$/.test(String(tx));
   gl.attest = async (...a) => (netDown ? deadTx() : realGl.attest(...a));
   gl.sendJudge = async (...a) => (netDown ? deadTx() : realGl.sendJudge(...a));
+  gl.registerKey = async (...a) => (netDown ? deadTx() : realGl.registerKey(...a));
+  gl.setMerchant = async (...a) => (netDown ? deadTx() : realGl.setMerchant(...a));
   gl.status = async (tx) => (isDead(tx) ? { status: "CANCELED", result: "IDLE", done: true, lastVote: 0 } : realGl.status(tx));
   const rawMails = async (n) => (await core.order(n)).mails;
 
@@ -1301,6 +1303,34 @@ async function run(url, stubPort, keys) {
   const nd3m = (await rawMails(nd3.order)).filter((m) => m.receivedAt < nd3Now - 7 * 86400);
   check(nd3m.length >= 2 && nd3m.every((m) => m.state === "not_attested" && m.attempts.every((a) => a.unrun)),
     "NETWORK an email the network kept canceling for 7 days: not attested, as before");
+
+  // store registration: register_key and set_merchant the network cancels before any vote do not count either
+  const meta0 = await core.meta();
+  let rnow = await t();
+  const regRun = async (x, n, step) => { for (let i = 0; i < n; i++) { rnow += step; await core.registerStep(x, rnow, { gl: 3, relayer: 0 }, meta0); } };
+  netDown = true;
+  const rx = { merchant: B4.address.toLowerCase(), domain: "unlisted.example", selector: "s1", state: "key" };
+  await regRun(rx, 2, 20);
+  await regRun(rx, 30, 1800);
+  check(rx.state === "key" && rx.key.attempts.length > 3 && rx.key.attempts.every((a) => a.unrun),
+    "NETWORK registration: register_key canceled by the network for 15 hours, more than 3 times: none counted, the store does not fail");
+  netDown = false;
+  await regRun(rx, 20, 1800);
+  check(rx.state === "failed" && rx.key.attempts.filter((a) => !a.unrun).length === 3 && /KeyCache/.test(rx.failure),
+    "NETWORK a register_key that ran and did not register the key still counts: failed after 3 such attempts, as before");
+  const ts = structuredClone(await core.shop(STORE.address.toLowerCase()));
+  const jx = { ...ts, merchant: B3.address.toLowerCase(), state: "judges" };
+  delete jx.judges;
+  netDown = true;
+  await regRun(jx, 2, 20);
+  await regRun(jx, 6, 1800);
+  check(jx.state === "judges" && jx.judges.mail.attempts.length >= 2 && jx.judges.mail.attempts.every((a) => a.unrun),
+    "NETWORK registration: set_merchant canceled by the network: not counted, sent again an hour later");
+  netDown = false;
+  await regRun(jx, 12, 1800);
+  check(jx.state === "escrow" && jx.judges.mail.done && jx.judges.subjective.done && jx.judges.mail.attempts[0].unrun,
+    "NETWORK back up: set_merchant registers the terms on both judges and the store goes on to the escrow step");
+  for (const x of [rx, jx]) { x.state = "failed"; x.failure = "rehearsal only"; await core.saveShop(x); }
   netDown = false;
   Object.assign(gl, realGl);
 
